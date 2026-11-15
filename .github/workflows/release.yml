@@ -43,7 +43,8 @@ jobs:
 
   release:
     needs: test
-    if: github.event_name != 'pull_request'
+    # Only the official repository publishes (forks and old copies just run the tests).
+    if: github.event_name != 'pull_request' && github.repository == 'justapps-it/JustCode'
     runs-on: ubuntu-latest
     outputs:
       created: ${{ steps.state.outputs.gh }}
