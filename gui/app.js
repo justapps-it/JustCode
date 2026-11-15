@@ -117,7 +117,10 @@ function renderAgents(agents, status) {
     .map(
       (a) =>
         `<div class="agent ${a.status}"><div class="ah"><span class="name">${esc(a.name)}</span><span class="meta">${a.tools} tools</span></div>` +
-        `<div class="meta">${esc(a.model)}</div><div class="act" title="${esc(a.activity)}">${esc(a.activity)}</div><div class="bar"><span></span></div></div>`,
+        `<div class="meta">${esc(a.model)}${a.cost ? ` <span class="cost">· ${fmtUsd(a.cost)}</span>` : ''}</div>` +
+        (a.price ? `<div class="meta cost">${esc(a.price)}</div>` : '') +
+        (a.note ? `<div class="note">${esc(a.note)}</div>` : '') +
+        `<div class="act" title="${esc(a.activity)}">${esc(a.activity)}</div><div class="bar"><span></span></div></div>`,
     )
     .join('');
 }
@@ -137,6 +140,151 @@ function setConfig(c) {
   $('turbo').checked = !!c.turbo;
   $('thinking').checked = !!c.showThinking;
   document.body.classList.toggle('turbo-on', !!c.turbo);
+  $('budgetLabel').textContent = budgetText(c.budget);
+  $('budgetChip').style.setProperty('--bcol', budgetColor(c.budget));
+}
+
+/* ---------- budget ---------- */
+const BSTEPS = [0, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, null];
+const BTICKS = ['free', '1¢', '2¢', '5¢', '10¢', '25¢', '50¢', '$1', '$2', '$5', '$10', '∞'];
+const BRAMP = ['#4ade80', '#a3e635', '#facc15', '#ff8a00', '#ff5a1f', '#f43f5e'];
+function fmtUsd(v) {
+  if (!v) return '$0';
+  if (v < 0.01) return '$' + v.toFixed(4);
+  if (v < 0.1) return '$' + v.toFixed(3);
+  return '$' + v.toFixed(2);
+}
+function budgetText(b) {
+  return b === null || b === undefined ? 'no limit' : b === 0 ? 'free only' : fmtUsd(b);
+}
+function stopIndex(v) {
+  if (v === null || v === undefined) return BSTEPS.length - 1;
+  let i = 0;
+  BSTEPS.forEach((s, k) => {
+    if (s !== null && s <= v) i = k;
+  });
+  return i;
+}
+/** position 0..1 on the slider, between stops for custom amounts */
+function budgetPos(v) {
+  const i = stopIndex(v);
+  const a = BSTEPS[i];
+  const b = BSTEPS[i + 1];
+  const f = v !== null && v !== undefined && b !== null && b !== undefined && b !== a ? (v - a) / (b - a) : 0;
+  return (i + f) / (BSTEPS.length - 1);
+}
+function hexMix(a, b, t) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return '#' + x.map((c, i) => Math.round(c + (y[i] - c) * t).toString(16).padStart(2, '0')).join('');
+}
+function budgetColor(v) {
+  const t = budgetPos(v) * (BRAMP.length - 1);
+  const i = Math.min(BRAMP.length - 2, Math.floor(t));
+  return hexMix(BRAMP[i], BRAMP[i + 1], t - i);
+}
+
+const BD = { value: null, auto: true, free: [], cat: null };
+async function openBudget() {
+  const c = S.config;
+  Object.assign(BD, { value: c.budget ?? null, auto: c.autoSubModels !== false, free: [...(c.freeTier || [])], cat: null });
+  $('bAuto').checked = BD.auto;
+  $('bCustom').value = '';
+  $('bTicks').innerHTML = BTICKS.map((t, i) => `<button type="button" data-i="${i}">${t}</button>`).join('');
+  $('bTicks').querySelectorAll('button').forEach((b) =>
+    b.addEventListener('click', () => {
+      BD.value = BSTEPS[Number(b.dataset.i)];
+      $('bCustom').value = '';
+      drawBudget();
+    }),
+  );
+  const prov = (c.usable || []).filter((p) => p !== 'custom');
+  $('bFreeSec').hidden = !prov.length;
+  $('bFree').innerHTML = prov
+    .map((p) => `<label class="switch"><input type="checkbox" data-p="${p}"${BD.free.includes(p) ? ' checked' : ''}><span class="sw"></span>${p}</label>`)
+    .join('');
+  $('bFree').querySelectorAll('input').forEach((i) =>
+    i.addEventListener('change', () => {
+      BD.free = i.checked ? [...new Set([...BD.free, i.dataset.p])] : BD.free.filter((p) => p !== i.dataset.p);
+      drawBudget();
+    }),
+  );
+  $('budgetDlg').hidden = false;
+  drawBudget();
+  $('bRange').focus();
+  BD.cat = await api('catalog');
+  drawBudget();
+}
+function drawBudget() {
+  const v = BD.value;
+  const pos = budgetPos(v);
+  const col = budgetColor(v);
+  const dlg = $('budgetDlg');
+  dlg.style.setProperty('--bcol', col);
+  $('slider').style.setProperty('--p', pos * 100 + '%');
+  $('slider').style.setProperty('--rw', $('slider').offsetWidth + 'px');
+  $('bRange').value = String(stopIndex(v));
+  $('bBig').textContent = v === null ? 'No limit' : v === 0 ? 'Free' : fmtUsd(v);
+  $('bSmall').textContent = v === null ? 'the orchestrator still prefers cheap models' : v === 0 ? 'only free models' : 'per request';
+  $('bTicks').querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', BSTEPS[i] === v));
+  // which models the orchestrator can use at this budget
+  const cat = Array.isArray(BD.cat) ? BD.cat : null;
+  if (!cat) {
+    $('bCount').textContent = 'Loading models…';
+    $('bCountNote').textContent = '';
+    $('bModels').innerHTML = '';
+    return;
+  }
+  const kindOf = (m) => (BD.free.includes(m.provider) ? 'free' : m.baseKind);
+  const labelOf = (m) => (BD.free.includes(m.provider) ? 'free (free tier)' : m.baseLabel);
+  const list = cat.map((m) => ({ ...m, k: kindOf(m), l: labelOf(m), ok: v !== 0 || kindOf(m) === 'free' }));
+  const ok = list.filter((m) => m.ok);
+  const free = ok.filter((m) => m.k === 'free').length;
+  const unknown = ok.filter((m) => m.k === 'unknown').length;
+  $('bCount').textContent = `${ok.length} model${ok.length === 1 ? '' : 's'} available`;
+  $('bCountNote').textContent = `${free} free` + (unknown ? ` · ${unknown} without a known price (their cost can't be counted)` : '');
+  const shown = [...list].sort((a, b) => Number(b.ok) - Number(a.ok) || (a.k === 'free' ? 0 : 1) - (b.k === 'free' ? 0 : 1) || a.weight - b.weight).slice(0, 60);
+  $('bModels').innerHTML = shown
+    .map((m) => `<span class="bm ${m.k}${m.ok ? '' : ' gone'}" title="${esc(m.l)}">${esc(m.ref)}<i>${m.k === 'free' ? 'free' : m.k === 'unknown' ? '?' : esc(m.l.split(' per')[0])}</i></span>`)
+    .join('');
+  $('bHint').textContent =
+    v === 0 && !ok.length ? 'No free model yet: mark a free-tier key above or add a local model (Ollama).' : '←/→ to move · type a custom amount for anything in between';
+}
+$('bRange').addEventListener('input', (e) => {
+  BD.value = BSTEPS[Number(e.target.value)];
+  $('bCustom').value = '';
+  drawBudget();
+});
+$('bCustom').addEventListener('input', (e) => {
+  const n = Number(e.target.value);
+  if (e.target.value !== '' && n >= 0) {
+    BD.value = n;
+    drawBudget();
+  }
+});
+$('bAuto').addEventListener('change', (e) => (BD.auto = e.target.checked));
+$('budgetChip').addEventListener('click', () => openBudget());
+$('budgetClose').addEventListener('click', () => ($('budgetDlg').hidden = true));
+$('budgetDlg').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('budgetDlg').hidden = true;
+  if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') $('bSave').click();
+});
+$('bSave').addEventListener('click', async () => {
+  const r = await api('budget', { budget: BD.value, autoSubModels: BD.auto, freeTier: BD.free });
+  if (r.error) return ($('bHint').textContent = '✘ ' + r.error);
+  setConfig(r);
+  $('budgetDlg').hidden = true;
+  input.focus();
+});
+function showSpend(spent, limit) {
+  const m = $('meter');
+  m.hidden = !(limit > 0);
+  if (limit > 0) {
+    $('meterFill').style.width = Math.min(100, (spent / limit) * 100) + '%';
+    m.style.setProperty('--mw', m.offsetWidth + 'px');
+    m.classList.toggle('over', spent >= limit);
+  }
+  $('tokens').textContent = `↑${S.tokens.input} ↓${S.tokens.output} · ${fmtUsd(spent)}${limit > 0 ? ' / ' + fmtUsd(limit) : ''}`;
 }
 
 /* ---------- turbo burst ---------- */
@@ -664,6 +812,11 @@ function connect() {
     showPerm();
   });
   es.addEventListener('setup', () => openSetup());
+  es.addEventListener('budget-ui', () => openBudget());
+  es.addEventListener('spend', (e) => {
+    const d = JSON.parse(e.data);
+    showSpend(d.spent, d.limit);
+  });
   es.addEventListener('login-url', (e) => {
     const el = $('loginUrl');
     const { url } = JSON.parse(e.data);

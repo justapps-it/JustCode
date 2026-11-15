@@ -12,6 +12,7 @@
   <div class="brand"><img src="logo.svg" alt="" width="26" height="26"><b>just-Code</b><span class="cwd" id="cwd"></span></div>
   <div class="chips">
     <button class="chip" id="models" title="Models — /model">…</button>
+    <button class="chip budget-chip" id="budgetChip" title="Budget per request — /budget"><span class="dot"></span><span id="budgetLabel">no limit</span></button>
     <label class="think" title="Show the models' reasoning (/thinking)">
       <input type="checkbox" id="thinking"><span class="tbox">💭</span><span class="tl">Thinking</span>
     </label>
@@ -21,6 +22,7 @@
     <button class="icon" id="settings" title="Setup">⚙</button>
   </div>
 </header>
+<div class="meter" id="meter" hidden><span id="meterFill"></span></div>
 
 <main class="layout">
   <section class="chat" id="chat" aria-live="polite">
@@ -90,6 +92,38 @@
     <div class="mh"><b>Parallel sub-agents</b><input id="mpar" type="number" min="1" max="32" class="mnum"></div>
     <div class="errbox" id="mtest" hidden></div>
     <div class="row"><button class="btn" id="mTestBtn">Test orchestrator</button><button class="btn primary" id="mSave">Save</button></div>
+  </div>
+</div>
+
+<div class="modal" id="budgetDlg" hidden>
+  <div class="card wide">
+    <div class="sh"><b>◆ Budget</b><span class="muted">per request — the orchestrator picks sub-agent models within it</span><button class="icon" id="budgetClose" title="Close">✕</button></div>
+    <div class="progress"><span style="width:100%"></span></div>
+
+    <div class="bval"><span id="bBig">$0.25</span><small id="bSmall">per request</small></div>
+
+    <div class="slider" id="slider">
+      <div class="rail"><div class="fill" id="bFill"></div></div>
+      <input type="range" id="bRange" min="0" max="11" step="1" aria-label="Budget per request">
+      <div class="ticks" id="bTicks"></div>
+    </div>
+
+    <div class="brow">
+      <label class="custom">Custom <span class="cur">$</span><input id="bCustom" type="number" min="0" step="0.01" placeholder="0.30"></label>
+      <label class="switch"><input type="checkbox" id="bAuto"><span class="sw"></span>Orchestrator picks sub-agent models</label>
+    </div>
+
+    <div class="bsec">
+      <div class="bh"><b id="bCount">…</b><span class="muted" id="bCountNote"></span></div>
+      <div class="bmodels" id="bModels"></div>
+    </div>
+
+    <div class="bsec" id="bFreeSec">
+      <div class="bh"><b>Free tier</b><span class="muted">keys with no billing can't be charged: their models count as free</span></div>
+      <div class="bfree" id="bFree"></div>
+    </div>
+
+    <div class="row"><span class="muted small" id="bHint"></span><button class="btn primary" id="bSave">Save</button></div>
   </div>
 </div>
 

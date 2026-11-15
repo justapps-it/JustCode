@@ -103,6 +103,35 @@ assert.deepEqual(splitThink('half reasoning</think>Done'), { text: 'Done', think
   srv.close();
 }
 
+// --- budget: parsing, pricing sources, allowed models, tracker ---
+{
+  const { parseBudget, pricing, costOf, allowedModels, BudgetTracker, fmtBudget } = await import('../dist/core/budget.js');
+  assert.equal(parseBudget('free'), 0);
+  assert.equal(parseBudget('off'), null);
+  assert.equal(parseBudget('$0.25'), 0.25);
+  assert.equal(parseBudget('50c'), 0.5);
+  assert.equal(parseBudget('abc'), undefined);
+  assert.equal(fmtBudget(0), 'free only');
+  const c = { ...defaultConfig(), freeTier: ['groq'], prices: { 'openai:gpt-x': { in: 2, out: 8 } } };
+  assert.equal(pricing(c, { provider: 'custom', model: 'llama' }).kind, 'free');
+  assert.equal(pricing(c, { provider: 'groq', model: 'any' }).kind, 'free');
+  assert.equal(pricing(c, { provider: 'openrouter', model: 'x/y:free' }).kind, 'free');
+  assert.equal(pricing(c, { provider: 'gemini', model: 'gemini-flash-latest' }).kind, 'unknown');
+  assert.equal(costOf(c, { provider: 'openai', model: 'gpt-x' }, 1_000_000, 500_000), 6);
+  const cat = [
+    { ref: 'custom:a', provider: 'custom', model: 'a', pricing: { kind: 'free', why: 'local' }, weight: 0 },
+    { ref: 'openai:gpt-x', provider: 'openai', model: 'gpt-x', pricing: { kind: 'priced', price: { in: 2, out: 8 } }, weight: 26 },
+  ];
+  assert.deepEqual(allowedModels(cat, 0).map((x) => x.ref), ['custom:a']);
+  assert.equal(allowedModels(cat, null).length, 2);
+  const t = new BudgetTracker(0.01);
+  t.add(0.004);
+  assert.equal(t.exceeded, false);
+  t.add(0.007);
+  assert.equal(t.exceeded, true);
+  assert.equal(new BudgetTracker(null).exceeded, false);
+}
+
 // --- GUI server ---
 const { startGui } = await import('../dist/gui/server.js');
 const gui = await startGui({ cwd, config: done, version: 'test', open: false });

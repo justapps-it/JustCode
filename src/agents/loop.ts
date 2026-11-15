@@ -20,6 +20,8 @@ export interface LoopOptions {
   onThinking?: (text: string) => void;
   thinking?: boolean;
   onUsage?: (input: number, output: number) => void;
+  /** Called before every model request; throw to stop (e.g. budget reached). */
+  beforeCall?: () => void;
 }
 
 /** Generic tool-calling agent loop. Mutates `messages` (history) and returns the final text. */
@@ -28,6 +30,7 @@ export async function runLoop(o: LoopOptions): Promise<string> {
   const defs = o.tools.map((t) => t.def);
   for (let step = 0; step < o.maxSteps; step++) {
     if (o.signal?.aborted) throw new Error('Interrupted');
+    o.beforeCall?.();
     const res = await o.provider.chat(o.model, o.messages, defs, o.signal, { thinking: o.thinking });
     if (res.usage) o.onUsage?.(res.usage.input, res.usage.output);
     if (o.thinking && res.thinking?.trim()) o.onThinking?.(res.thinking.trim());

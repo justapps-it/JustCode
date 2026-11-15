@@ -10,6 +10,7 @@ import { COMMANDS, runCommand, type Tone } from '../core/commands.js';
 import { complete, describeMentions, starterPrompts } from '../core/complete.js';
 import { PromptHistory } from '../core/history.js';
 import { clearModelCache, listModels, prefetchModels } from '../core/models.js';
+import { buildCatalog, fmtBudget, priceLabel, pricing, usableProviders } from '../core/budget.js';
 import { openAppWindow } from '../core/open.js';
 import { PRESETS, applySetup, hasCredentials, needsSetup, presetById, testConnection } from '../core/setup.js';
 import { listWorkspaceFiles, type PermissionRequest } from '../tools/index.js';
@@ -42,6 +43,9 @@ interface AgentView {
   tools: number;
   start: number;
   end?: number;
+  price?: string;
+  note?: string;
+  cost?: number;
 }
 
 export interface GuiOptions {
@@ -99,6 +103,10 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
     project: googleOAuth(config).quotaProject ?? null,
     account: account ?? null,
     needsSetup: needsSetup(config),
+    budget: config.budget,
+    autoSubModels: config.autoSubModels,
+    freeTier: config.freeTier ?? [],
+    usable: usableProviders(config),
   });
   const setConfig = (c: Config) => {
     config = c;
@@ -166,7 +174,28 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
         else push({ kind: 'tool', agent: 'orchestrator', name: e.name, summary: e.summary });
         break;
       case 'agent:spawn':
-        agents.push({ id: e.id, name: e.name, model: e.model, task: e.task, status: 'queued', activity: e.task.split('\n')[0].slice(0, 120), tools: 0, start: Date.now() });
+        agents.push({
+          id: e.id,
+          name: e.name,
+          model: e.model,
+          task: e.task,
+          status: 'queued',
+          activity: e.task.split('\n')[0].slice(0, 120),
+          tools: 0,
+          start: Date.now(),
+          price: e.price,
+          note: e.note,
+          cost: 0,
+        });
+        break;
+      case 'usage':
+        if (e.id) updateAgent(e.id, (a) => ({ ...a, cost: (a.cost ?? 0) + e.cost }));
+        break;
+      case 'budget':
+        send('spend', { spent: e.spent, limit: e.limit });
+        break;
+      case 'notice':
+        say(e.text, 'warn');
         break;
       case 'agent:start':
         updateAgent(e.id, (a) => ({ ...a, status: 'running', start: Date.now() }));
@@ -204,6 +233,7 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
         send('config', summary());
       },
       openSetup: () => send('setup', {}),
+      openBudget: () => send('budget-ui', {}),
     });
 
   const sendPrompt = async (raw: string) => {
@@ -351,6 +381,27 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
               }
           }
           return json(res, 200, { ok: true });
+        }
+        case 'GET /api/catalog': {
+          const cat = await buildCatalog(config);
+          return json(
+            res,
+            200,
+            cat.map((c) => {
+              // pricing without the free-tier flags, so the dialog can preview toggling them
+              const base = pricing({ ...config, freeTier: [] }, { provider: c.provider, model: c.model });
+              return { ref: c.ref, provider: c.provider, model: c.model, kind: c.pricing.kind, label: priceLabel(c.pricing), baseKind: base.kind, baseLabel: priceLabel(base), weight: c.weight };
+            }),
+          );
+        }
+        case 'POST /api/budget': {
+          const b = await readBody(req);
+          const budget = b.budget === null ? null : Number(b.budget);
+          if (budget !== null && !(budget >= 0)) return json(res, 400, { error: 'budget must be ≥ 0 or null' });
+          const freeTier = Array.isArray(b.freeTier) ? (b.freeTier as string[]).filter((p): p is ProviderId => PROVIDER_IDS.includes(p as ProviderId)) : config.freeTier;
+          setConfig({ ...config, budget, autoSubModels: b.autoSubModels !== false, freeTier });
+          say(`✔ Budget: ${fmtBudget(budget)} · sub-agent models ${config.autoSubModels ? 'picked by the orchestrator' : 'fixed'}`, 'ok');
+          return json(res, 200, summary());
         }
         case 'POST /api/thinking': {
           const b = await readBody(req);

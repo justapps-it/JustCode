@@ -1,6 +1,6 @@
 import { getGoogleAccessToken } from '../auth/google.js';
 import type { GoogleOAuthSettings } from '../config.js';
-import { fetchRetry, ProviderError, type ChatResult, type JSONSchema, type Message, type Provider, type ToolCall, type ToolDef, type ChatOptions } from './types.js';
+import { fetchRetry, ProviderError, type ChatResult, type JSONSchema, type Message, type Provider, type ToolCall, type ToolDef, type ChatOptions, type ModelInfo } from './types.js';
 
 interface Part {
   text?: string;
@@ -49,7 +49,7 @@ export class GeminiProvider implements Provider {
     throw new ProviderError(NOT_CONNECTED);
   }
 
-  async listModels(signal?: AbortSignal): Promise<string[]> {
+  async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
     const res = await fetch(`${this.baseUrl}/models?pageSize=1000`, { headers: await this.authHeaders(), signal });
     const json = (await res.json().catch(() => null)) as { models?: { name: string; supportedGenerationMethods?: string[] }[]; error?: { message?: string } } | null;
     if (!res.ok) throw new ProviderError(`Gemini ${res.status}: ${json?.error?.message ?? res.statusText}`, res.status);
@@ -58,7 +58,9 @@ export class GeminiProvider implements Provider {
       .map((m) => m.name.replace(/^models\//, ''))
       .filter((id) => id.startsWith('gemini') && !/(embedding|tts|image|audio|live)/.test(id));
     // always-current aliases first, then newest versions first
-    return [...new Set(ids)].sort((a, b) => Number(b.endsWith('-latest')) - Number(a.endsWith('-latest')) || b.localeCompare(a, undefined, { numeric: true }));
+    return [...new Set(ids)]
+      .sort((a, b) => Number(b.endsWith('-latest')) - Number(a.endsWith('-latest')) || b.localeCompare(a, undefined, { numeric: true }))
+      .map((id) => ({ id }));
   }
 
   async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal, opts?: ChatOptions): Promise<ChatResult> {

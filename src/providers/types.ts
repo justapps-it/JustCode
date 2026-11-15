@@ -38,8 +38,20 @@ export interface ChatResult {
 export interface Provider {
   id: string;
   chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal, opts?: ChatOptions): Promise<ChatResult>;
-  /** Model ids the provider currently offers (for pickers and autocomplete). */
-  listModels?(signal?: AbortSignal): Promise<string[]>;
+  /** Models the provider currently offers (for pickers, autocomplete and the orchestrator's choice). */
+  listModels?(signal?: AbortSignal): Promise<ModelInfo[]>;
+}
+
+/** USD per 1M tokens. */
+export interface Price {
+  in: number;
+  out: number;
+}
+
+export interface ModelInfo {
+  id: string;
+  /** Known price (e.g. OpenRouter publishes it); absent = unknown. */
+  price?: Price;
 }
 
 export interface ChatOptions {

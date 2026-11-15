@@ -117,6 +117,16 @@ Di default, prima di **scrivere o modificare file** e di **eseguire comandi shel
 **TURBO** (`/turbo`, il tasto `t` in un prompt, oppure `just-code --turbo`) fa agire gli agenti senza chiedere conferma, e si attiva con un'animazione arcobaleno. `/turbo` lo spegne.
 Gli agenti possono lavorare solo dentro la cartella in cui hai avviato just-Code.
 
+## Budget e scelta dei modelli
+
+L'orchestratore sceglie il modello di **ogni sub-agente** tra quelli che i tuoi provider offrono in quel momento: economico e veloce per leggere e cercare, più forte per bug difficili e refactoring. Il limite lo decidi tu con il **budget per richiesta**:
+
+- `/budget` apre lo slider (← → per spostarsi, `c` per un importo esatto, `a` per attivare/disattivare la scelta automatica); nella GUI clicca il pulsante del budget in alto.
+- `/budget free` → solo modelli gratuiti · `/budget 0.25` o `/budget 50c` → al massimo quella spesa · `/budget off` → nessun limite.
+- `/auto off` → i sub-agenti usano sempre il modello di `/model sub`.
+
+Da dove arrivano i prezzi (in USD per 1M token): **OpenRouter** li pubblica e just-Code li legge dal vivo; i **modelli locali** (Ollama, LM Studio…) sono gratis; le chiavi del **piano gratuito** senza fatturazione (es. AI Studio, Groq free) contano come gratis — si segnano nella GUI, e la configurazione guidata lo fa da sola; puoi aggiungere prezzi tuoi in `~/.just-code/config.json` (`"prices": { "openai:gpt-4.1": { "in": 2, "out": 8 } }`). Per gli altri modelli il prezzo è sconosciuto: possono essere usati ma la loro spesa non viene contata (lo slider te lo dice). La spesa della richiesta in corso appare nella barra di stato e, nella GUI, nella barra sotto l'intestazione; a budget esaurito just-Code si ferma.
+
 ## Comandi
 
 | Comando | |
@@ -129,7 +139,8 @@ Gli agenti possono lavorare solo dentro la cartella in cui hai avviato just-Code
 | `/key <provider> <key>` | salva una API key |
 | `/baseurl <provider> <url>` | endpoint compatibile OpenAI |
 | `/model <orchestrator\|sub> <provider:model>` | cambia modello |
-| `/models` | modelli suggeriti |
+| `/budget [free\|0.25\|off]` | budget per richiesta (senza argomento: slider) |
+| `/auto [on\|off]` | l'orchestratore sceglie il modello dei sub-agenti |
 | `/parallel <n>` | numero massimo di sub-agenti in parallelo |
 | `/turbo` | attiva o disattiva TURBO |
 | `/thinking [on\|off]` | mostra il ragionamento dei modelli |

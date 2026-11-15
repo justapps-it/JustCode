@@ -135,6 +135,8 @@ export function applySetup(cfg: Config, c: SetupChoice): Config {
     orchestrator: { provider: p, model: c.orchestrator },
     subagent: { provider: p, model: c.sub },
     turbo: c.turbo,
+    // a key from a free plan (AI Studio without billing, Groq free) cannot be charged
+    freeTier: c.preset.free && c.preset.key === 'required' ? [...new Set([...(cfg.freeTier ?? []), p])] : cfg.freeTier,
     setupDone: true,
   };
 }

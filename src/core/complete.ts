@@ -156,6 +156,21 @@ export function complete(input: string, ctx: CompleteContext): Suggestion[] {
         }
         return [];
       }
+      case '/budget':
+        return argIdx === 0
+          ? opts(
+              [
+                { v: 'free', hint: 'free models only' },
+                { v: '0.05', hint: '5 cents per request' },
+                { v: '0.25', hint: '25 cents' },
+                { v: '1', hint: '$1' },
+                { v: 'off', hint: 'no limit' },
+              ],
+              false,
+            )
+          : [];
+      case '/auto':
+        return argIdx === 0 ? opts([{ v: 'on', hint: 'orchestrator picks models' }, { v: 'off', hint: 'always the default' }], false) : [];
       case '/thinking':
         return argIdx === 0 ? opts([{ v: 'on', hint: 'show reasoning' }, { v: 'off', hint: 'hide it' }], false) : [];
       case '/turbo':

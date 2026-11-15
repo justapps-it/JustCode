@@ -34,6 +34,14 @@ export interface Config {
   turbo: boolean;
   /** Show the models' reasoning (thought summaries) in the UI. */
   showThinking: boolean;
+  /** Max spend per request in USD; 0 = free models only; null = no limit. */
+  budget: number | null;
+  /** The orchestrator chooses the model of each sub-agent (within the budget). */
+  autoSubModels: boolean;
+  /** Providers whose key has no billing (free tier): their models count as free. */
+  freeTier: ProviderId[];
+  /** Prices you set yourself, "provider:model" → USD per 1M tokens. */
+  prices: Record<string, { in: number; out: number }>;
   maxParallel: number;
   maxSteps: number;
 }
@@ -81,6 +89,10 @@ export function defaultConfig(): Config {
     google: {},
     turbo: false,
     showThinking: false,
+    budget: null,
+    autoSubModels: true,
+    freeTier: [],
+    prices: {},
     maxParallel: 4,
     maxSteps: 25,
   };

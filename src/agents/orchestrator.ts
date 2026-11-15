@@ -4,6 +4,18 @@ import { createProvider } from '../providers/index.js';
 import type { Message } from '../providers/types.js';
 import { TOOLS, shellInfo, type PermissionRequest, type ToolContext } from '../tools/index.js';
 import { runLoop, type LoopTool } from './loop.js';
+import {
+  BudgetError,
+  BudgetTracker,
+  allowedModels,
+  buildCatalog,
+  costOf,
+  fmtUsd,
+  modelGuide,
+  pricing,
+  priceLabel,
+  type CatalogEntry,
+} from '../core/budget.js';
 
 export type AgentStatus = 'queued' | 'running' | 'done' | 'error';
 
@@ -13,12 +25,14 @@ export type JustEvent =
   | { type: 'orch:reasoning'; text: string }
   | { type: 'agent:reasoning'; id: string; text: string }
   | { type: 'orch:tool'; name: string; summary: string }
-  | { type: 'agent:spawn'; id: string; name: string; task: string; model: string }
+  | { type: 'agent:spawn'; id: string; name: string; task: string; model: string; price: string; note?: string }
+  | { type: 'notice'; text: string }
+  | { type: 'budget'; spent: number; limit: number | null }
   | { type: 'agent:start'; id: string }
   | { type: 'agent:tool'; id: string; name: string; summary: string }
   | { type: 'agent:done'; id: string; result: string }
   | { type: 'agent:error'; id: string; error: string }
-  | { type: 'usage'; input: number; output: number };
+  | { type: 'usage'; input: number; output: number; cost: number; id?: string };
 
 const ORCH_SYSTEM = (cwd: string) => `You are the ORCHESTRATOR of just-Code, a terminal coding IDE.
 Workspace: ${cwd}. OS: ${process.platform}. Shell for run_shell: ${shellInfo().name}. Date: ${new Date().toISOString().slice(0, 10)}.
@@ -49,6 +63,33 @@ export class Orchestrator extends EventEmitter {
   history: Message[] = [];
   private abort?: AbortController;
   private seq = 0;
+  private tracker = new BudgetTracker(null);
+  private allowed: CatalogEntry[] = [];
+
+  /** Counts the cost of a model call and reports it. */
+  private spend(ref: ModelRef, input: number, output: number, id?: string) {
+    const cost = costOf(this.o.getConfig(), ref, input, output);
+    this.tracker.add(cost);
+    this.emitEv({ type: 'usage', input, output, cost, id });
+    this.emitEv({ type: 'budget', spent: this.tracker.spent, limit: this.tracker.limit });
+  }
+
+  private checkBudget = () => {
+    if (this.tracker.exceeded)
+      throw new BudgetError(`Budget reached: spent ${fmtUsd(this.tracker.spent)} of ${fmtUsd(this.tracker.limit ?? 0)} for this request (/budget to change it).`);
+  };
+
+  /** The model a sub-agent will use: the orchestrator's pick if allowed, else the default, else the cheapest allowed. */
+  private resolveModel(cfg: Config, requested?: string): { ref: ModelRef; note?: string } {
+    const want = requested ? parseModelRef(requested.trim()) : null;
+    if (!cfg.autoSubModels) return { ref: cfg.subagent };
+    const ok = (r: ModelRef) => this.allowed.some((c) => c.ref === fmtRef(r));
+    if (want && ok(want)) return { ref: want };
+    if (ok(cfg.subagent)) return { ref: cfg.subagent, note: want ? `${fmtRef(want)} not allowed by the budget` : undefined };
+    const cheapest = [...this.allowed].sort((a, b) => a.weight - b.weight)[0];
+    if (!cheapest) throw new BudgetError('No model fits the budget: raise it with /budget, or mark a free-tier provider.');
+    return { ref: { provider: cheapest.provider, model: cheapest.model }, note: want ? `${fmtRef(want)} not allowed by the budget` : 'cheapest allowed model' };
+  }
 
   constructor(private o: OrchestratorOptions) {
     super();
@@ -88,7 +129,7 @@ export class Orchestrator extends EventEmitter {
         name: 'spawn_agents',
         description:
           'Launch sub-agents IN PARALLEL, each with a small self-contained task. Returns every agent report. ' +
-          'Optionally choose a model per agent as "provider:model" (providers: gemini, groq, openrouter, openai, custom).',
+          'Choose a model per agent as "provider:model" from the list in your instructions (cheap for simple work, stronger for hard work).',
         parameters: {
           type: 'object',
           properties: {
@@ -99,7 +140,7 @@ export class Orchestrator extends EventEmitter {
                 properties: {
                   name: { type: 'string', description: 'Short role name, e.g. "explorer", "test-writer"' },
                   task: { type: 'string', description: 'Complete, self-contained instructions' },
-                  model: { type: 'string', description: 'Optional provider:model override' },
+                  model: { type: 'string', description: 'provider:model from the available list; omit for the default' },
                 },
                 required: ['name', 'task'],
               },
@@ -112,6 +153,7 @@ export class Orchestrator extends EventEmitter {
       run: async (a) => {
         const specs = (Array.isArray(a.agents) ? a.agents : []) as { name: string; task: string; model?: string }[];
         if (!specs.length) return 'ERROR: no agents given';
+        if (this.tracker.exceeded) return `ERROR: the budget for this request is used up (${fmtUsd(this.tracker.spent)}). Answer with what you have.`;
         return JSON.stringify(await this.runAgents(specs, signal), null, 1);
       },
     };
@@ -121,8 +163,8 @@ export class Orchestrator extends EventEmitter {
     const cfg = this.o.getConfig();
     const jobs = specs.map((s) => {
       const id = `a${++this.seq}`;
-      const ref: ModelRef = (s.model && parseModelRef(s.model)) || cfg.subagent;
-      this.emitEv({ type: 'agent:spawn', id, name: s.name || id, task: s.task, model: fmtRef(ref) });
+      const { ref, note } = this.resolveModel(cfg, s.model);
+      this.emitEv({ type: 'agent:spawn', id, name: s.name || id, task: s.task, model: fmtRef(ref), price: priceLabel(pricing(cfg, ref)), note });
       return { id, spec: s, ref };
     });
 
@@ -147,7 +189,8 @@ export class Orchestrator extends EventEmitter {
             tools: this.fileTools(spec.name, signal, (name, summary) => this.emitEv({ type: 'agent:tool', id, name, summary })),
             thinking: cfg.showThinking,
             onThinking: (text) => this.emitEv({ type: 'agent:reasoning', id, text }),
-            onUsage: (input, output) => this.emitEv({ type: 'usage', input, output }),
+            onUsage: (input, output) => this.spend(ref, input, output, id),
+            beforeCall: this.checkBudget,
           });
           this.emitEv({ type: 'agent:done', id, result: report });
           results[i] = { agent: spec.name, ok: true, report };
@@ -167,9 +210,22 @@ export class Orchestrator extends EventEmitter {
     const cfg = this.o.getConfig();
     this.abort = new AbortController();
     const signal = this.abort.signal;
-    if (!this.history.length) this.history.push({ role: 'system', content: ORCH_SYSTEM(this.o.cwd) });
-    this.history.push({ role: 'user', content: userText });
+    this.tracker = new BudgetTracker(cfg.budget);
     this.emitEv({ type: 'orch:thinking' });
+    this.emitEv({ type: 'budget', spent: 0, limit: cfg.budget });
+    // what the orchestrator may pick for its sub-agents, refreshed every request
+    let guide = '';
+    if (cfg.autoSubModels) {
+      this.allowed = allowedModels(await buildCatalog(cfg), cfg.budget);
+      guide = this.allowed.length ? modelGuide(cfg, this.allowed, 0) : '';
+      if (cfg.budget === 0 && pricing(cfg, cfg.orchestrator).kind !== 'free')
+        this.emitEv({ type: 'notice', text: `Budget is "free only" but the orchestrator ${fmtRef(cfg.orchestrator)} is not a free model: its own requests are not counted.` });
+      if (!this.allowed.length) this.emitEv({ type: 'notice', text: 'No sub-agent model fits the budget: raise it with /budget or mark a free-tier provider.' });
+    }
+    const system = ORCH_SYSTEM(this.o.cwd) + guide;
+    if (!this.history.length) this.history.push({ role: 'system', content: system });
+    else if (this.history[0].role === 'system') this.history[0] = { role: 'system', content: system };
+    this.history.push({ role: 'user', content: userText });
     try {
       const provider = createProvider(cfg, cfg.orchestrator.provider);
       return await runLoop({
@@ -188,7 +244,8 @@ export class Orchestrator extends EventEmitter {
         onToolStart: (call, summary) => {
           if (call.name === 'spawn_agents') this.emitEv({ type: 'orch:tool', name: call.name, summary });
         },
-        onUsage: (input, output) => this.emitEv({ type: 'usage', input, output }),
+        onUsage: (input, output) => this.spend(cfg.orchestrator, input, output),
+        beforeCall: this.checkBudget,
       });
     } catch (e) {
       // Keep history consistent: drop a dangling tool-call turn so the next request is valid.

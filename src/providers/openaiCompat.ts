@@ -1,4 +1,4 @@
-import { fetchRetry, ProviderError, splitThink, type ChatOptions, type ChatResult, type Message, type Provider, type ToolDef } from './types.js';
+import { fetchRetry, ProviderError, splitThink, type ChatOptions, type ChatResult, type ModelInfo, type Message, type Provider, type ToolDef } from './types.js';
 
 /** Any OpenAI-compatible Chat Completions API: Groq, OpenRouter, OpenAI, Ollama, LM Studio, vLLM... */
 export class OpenAICompatProvider implements Provider {
@@ -75,7 +75,7 @@ export class OpenAICompatProvider implements Provider {
     };
   }
 
-  async listModels(signal?: AbortSignal): Promise<string[]> {
+  async listModels(signal?: AbortSignal): Promise<ModelInfo[]> {
     if (this.requireKey && !this.apiKey) throw new ProviderError(`${this.id}: missing API key.`);
     const headers: Record<string, string> = {};
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
@@ -87,8 +87,15 @@ export class OpenAICompatProvider implements Provider {
       // agents need tool calling: keep models that declare it (OpenRouter) or don't say
       .filter((m) => !Array.isArray(m?.supported_parameters) || m.supported_parameters.includes('tools'))
       .filter((m) => m?.active !== false)
-      .map((m) => String(m?.id ?? m?.name ?? ''))
-      .filter((id) => id && !/(embed|whisper|tts|dall-e|moderation|guard|transcri|image|audio|realtime)/i.test(id))
-      .sort();
+      .map((m): ModelInfo => {
+        const id = String(m?.id ?? m?.name ?? '');
+        // OpenRouter: pricing.prompt / pricing.completion are USD per token (strings)
+        const pin = Number(m?.pricing?.prompt);
+        const pout = Number(m?.pricing?.completion);
+        const price = Number.isFinite(pin) && Number.isFinite(pout) && pin >= 0 && pout >= 0 ? { in: pin * 1e6, out: pout * 1e6 } : undefined;
+        return { id, price };
+      })
+      .filter((m) => m.id && !/(embed|whisper|tts|dall-e|moderation|guard|transcri|image|audio|realtime)/i.test(m.id))
+      .sort((a, b) => a.id.localeCompare(b.id));
   }
 }

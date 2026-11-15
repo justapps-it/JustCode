@@ -11,6 +11,8 @@ import { hasCredentials, needsSetup } from '../core/setup.js';
 import { listWorkspaceFiles } from '../tools/index.js';
 import { PromptInput } from './PromptInput.js';
 import { Setup } from './Setup.js';
+import { BudgetSlider } from './BudgetSlider.js';
+import { fmtBudget, fmtUsd } from '../core/budget.js';
 import type { PermissionRequest } from '../tools/index.js';
 import { AgentPanel, type AgentView } from './AgentPanel.js';
 import { AnimatedLogo, StaticLogo } from './Logo.js';
@@ -59,6 +61,8 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
 
   const [splash, setSplash] = useState(true);
   const [setup, setSetup] = useState(false);
+  const [budgetUi, setBudgetUi] = useState(false);
+  const [spend, setSpend] = useState<{ spent: number; limit: number | null }>({ spent: 0, limit: null });
   const history = useMemo(() => new PromptHistory(), []);
   const [files, setFiles] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
@@ -114,7 +118,7 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
         case 'agent:spawn':
           updateAgents((a) => [
             ...a,
-            { id: e.id, name: e.name, task: e.task, model: e.model, status: 'queued', activity: e.task.split('\n')[0].slice(0, 70), tools: 0, start: Date.now() },
+            { id: e.id, name: e.name, task: e.task, model: e.model, status: 'queued', activity: (e.note ? `(${e.note}) ` : '') + e.task.split('\n')[0].slice(0, 70), tools: 0, start: Date.now() },
           ]);
           break;
         case 'agent:start':
@@ -134,6 +138,12 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
           break;
         case 'usage':
           setTokens((t) => ({ input: t.input + e.input, output: t.output + e.output }));
+          break;
+        case 'budget':
+          setSpend({ spent: e.spent, limit: e.limit });
+          break;
+        case 'notice':
+          push({ kind: 'info', text: e.text, color: C.yellow });
           break;
       }
     };
@@ -231,6 +241,7 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
       },
       onAccount: setAccount,
       openSetup: () => setSetup(true),
+      openBudget: () => setBudgetUi(true),
       exit,
     });
 
@@ -304,13 +315,25 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
         />
       )}
 
-      {!busy && !setup && queue.length === 0 && <PromptInput ctx={completeCtx} starters={starters} turbo={config.turbo} onSubmit={submit} />}
-      <StatusBar config={config} tokens={tokens} account={account} />
+      {budgetUi && (
+        <BudgetSlider
+          config={config}
+          onCancel={() => setBudgetUi(false)}
+          onDone={(c) => {
+            setBudgetUi(false);
+            setConfig(c);
+            push({ kind: 'info', text: `✔ Budget: ${fmtBudget(c.budget)} · sub-agent models ${c.autoSubModels ? 'picked by the orchestrator' : 'fixed'}`, color: C.green });
+          }}
+        />
+      )}
+
+      {!busy && !setup && !budgetUi && queue.length === 0 && <PromptInput ctx={completeCtx} starters={starters} turbo={config.turbo} onSubmit={submit} />}
+      <StatusBar config={config} tokens={tokens} account={account} spend={spend} />
     </Box>
   );
 }
 
-function StatusBar({ config, tokens, account }: { config: Config; tokens: { input: number; output: number }; account?: string }) {
+function StatusBar({ config, tokens, account, spend }: { config: Config; tokens: { input: number; output: number }; account?: string; spend: { spent: number; limit: number | null } }) {
   const tick = useTick(120, config.turbo);
   return (
     <Box paddingX={1} justifyContent="space-between">
@@ -320,6 +343,9 @@ function StatusBar({ config, tokens, account }: { config: Config; tokens: { inpu
       </Text>
       <Text>
         <Text color={C.dim}>{`↑${tokens.input} ↓${tokens.output}  `}</Text>
+        <Text color={spend.limit !== null && spend.limit > 0 && spend.spent >= spend.limit ? C.red : C.dim}>
+          {config.budget === 0 ? 'free only  ' : `${fmtUsd(spend.spent)}${config.budget !== null ? ` / ${fmtUsd(config.budget)}` : ''}  `}
+        </Text>
         {config.showThinking ? <Text color={C.dim}>{'💭  '}</Text> : null}
         {config.turbo ? (
           <Text bold color={lerpColors(RAINBOW, tick / 20)}>

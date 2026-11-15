@@ -15,6 +15,7 @@ import {
 } from '../config.js';
 import { NEED_PROJECT } from '../providers/gemini.js';
 import { clearModelCache, listModels } from './models.js';
+import { fmtBudget, parseBudget } from './budget.js';
 
 /** Slash commands shared by the terminal UI and the GUI. */
 export interface CommandSpec {
@@ -29,6 +30,8 @@ export const COMMANDS: CommandSpec[] = [
   { name: '/key', args: '<provider> <api_key>', desc: 'save an API key (gemini, groq, openrouter, openai, custom)' },
   { name: '/model', args: '<orchestrator|sub> <provider:model>', desc: 'choose models' },
   { name: '/models', args: '[provider]', desc: 'list the models your providers offer' },
+  { name: '/budget', args: '[free|0.50|off]', desc: 'max spend per request (no argument: slider)' },
+  { name: '/auto', args: '[on|off]', desc: 'the orchestrator picks each sub-agent model' },
   { name: '/turbo', args: '[on|off]', desc: 'toggle TURBO mode (no confirmations)' },
   { name: '/thinking', args: '[on|off]', desc: "show the models' reasoning" },
   { name: '/parallel', args: '<n>', desc: 'max sub-agents running at once' },
@@ -56,6 +59,7 @@ export interface CommandHost {
   newAbort(): AbortSignal;
   onAccount?(email?: string): void;
   openSetup?(): void;
+  openBudget?(): void;
   exit?(): void;
 }
 
@@ -66,7 +70,7 @@ export function statusText(cfg: Config, cwd: string): string {
   return (
     `orchestrator  ${fmtRef(cfg.orchestrator)}\nsub-agents    ${fmtRef(cfg.subagent)}  (max ${cfg.maxParallel} parallel)\n` +
     `google login  ${isGoogleLoggedIn() ? `✔ ${googleAccount() ?? ''}` : '✘'}  project ${googleOAuth(cfg).quotaProject ?? '—'}\n` +
-    `api keys      ${keys}\nturbo         ${cfg.turbo ? 'ON ⚡' : 'off'}\nthinking      ${cfg.showThinking ? 'shown 💭' : 'hidden'}\nworkspace     ${cwd}\nconfig        ${CONFIG_FILE}`
+    `api keys      ${keys}\nturbo         ${cfg.turbo ? 'ON ⚡' : 'off'}\nthinking      ${cfg.showThinking ? 'shown' : 'hidden'}\nbudget        ${fmtBudget(cfg.budget)} · sub-agent models: ${cfg.autoSubModels ? 'picked by the orchestrator' : 'fixed'}\nworkspace     ${cwd}\nconfig        ${CONFIG_FILE}`
   );
 }
 
@@ -89,6 +93,21 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
       return h.say('✨ conversation cleared');
     case '/turbo':
       return h.setTurbo(args[0] ? args[0] === 'on' : !cfg.turbo);
+    case '/budget': {
+      if (!args[0]) {
+        if (h.openBudget) return h.openBudget();
+        return h.say(`Budget: ${fmtBudget(cfg.budget)}. Use /budget free | 0.50 | off`);
+      }
+      const b = parseBudget(args.join(''));
+      if (b === undefined) return h.say('Usage: /budget free | 0.25 | $2 | 50c | off', 'error');
+      h.setConfig({ ...cfg, budget: b });
+      return h.say(`✔ Budget: ${fmtBudget(b)}`, 'ok');
+    }
+    case '/auto': {
+      const on = args[0] ? args[0] === 'on' : !cfg.autoSubModels;
+      h.setConfig({ ...cfg, autoSubModels: on });
+      return h.say(on ? '✔ The orchestrator now picks the model of each sub-agent (within the budget).' : `Sub-agents always use ${fmtRef(cfg.subagent)}.`, 'ok');
+    }
     case '/thinking': {
       const on = args[0] ? args[0] === 'on' : !cfg.showThinking;
       h.setConfig({ ...cfg, showThinking: on });
