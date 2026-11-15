@@ -137,11 +137,12 @@ jobs:
         run: npm run dist
         working-directory: desktop
       - name: Attach to the GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.release.outputs.tag }}
-          fail_on_unmatched_files: false
-          files: |
-            desktop/release/*.dmg
-            desktop/release/*.exe
-            desktop/release/*.AppImage
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          TAG=v$(node -p "require('./package.json').version")
+          files=(desktop/release/*.dmg desktop/release/*.exe desktop/release/*.AppImage)
+          ls -la "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
