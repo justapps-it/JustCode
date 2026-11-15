@@ -103,6 +103,16 @@ pre.block .c{color:var(--muted)}
 
 .foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:22px 0 40px;border-top:1px solid var(--ink);margin-top:20px;font-size:13px;color:var(--muted)}
 
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:18px 0 10px}
+.dl .btn{display:flex;flex-direction:column;gap:2px;border:1px solid var(--ink);padding:10px 12px;text-decoration:none}
+.dl .btn span{font-size:12px;color:var(--muted)}
+.dl .btn:hover{border-color:var(--orange)}
+.dl .btn.me{background:var(--ink);color:var(--paper)}
+.dl .btn.me span{color:var(--paper);opacity:.75}
+.dl .btn.me:hover{background:var(--orange);border-color:var(--orange);color:#fff}
+.small{font-size:13px}
+.shot{margin:22px 0;border:1px solid var(--rule)}
+.shot img{display:block;width:100%;height:auto}
 @media (prefers-reduced-motion:reduce){.wordmark .cur{animation:none}}
 </style>
 </head>
@@ -112,6 +122,7 @@ pre.block .c{color:var(--muted)}
 <header class="top">
   <a class="id" href="/"><img src="logo.svg" alt="">just-Code</a>
   <nav>
+    <a href="#app">app</a>
     <a href="#installazione">installa</a>
     <a class="hide" href="#comandi">comandi</a>
     <a href="https://github.com/justapps-it/JustCode">github</a>
@@ -122,7 +133,7 @@ pre.block .c{color:var(--muted)}
   <!--wordmark--><svg class="wordmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 57 7" shape-rendering="crispEdges" role="img" aria-label="just-Code"><g class="ink"><rect x="0" y="0" width="5" height="1"/><rect x="6" y="0" width="1" height="1"/><rect x="10" y="0" width="1" height="1"/><rect x="13" y="0" width="4" height="1"/><rect x="18" y="0" width="5" height="1"/><rect x="29" y="0" width="4" height="1"/><rect x="35" y="0" width="3" height="1"/><rect x="40" y="0" width="4" height="1"/><rect x="46" y="0" width="5" height="1"/><rect x="3" y="1" width="1" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="10" y="1" width="1" height="1"/><rect x="12" y="1" width="1" height="1"/><rect x="20" y="1" width="1" height="1"/><rect x="28" y="1" width="1" height="1"/><rect x="34" y="1" width="1" height="1"/><rect x="38" y="1" width="1" height="1"/><rect x="40" y="1" width="1" height="1"/><rect x="44" y="1" width="1" height="1"/><rect x="46" y="1" width="1" height="1"/><rect x="3" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/><rect x="12" y="2" width="1" height="1"/><rect x="20" y="2" width="1" height="1"/><rect x="28" y="2" width="1" height="1"/><rect x="34" y="2" width="1" height="1"/><rect x="38" y="2" width="1" height="1"/><rect x="40" y="2" width="1" height="1"/><rect x="44" y="2" width="1" height="1"/><rect x="46" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/><rect x="10" y="3" width="1" height="1"/><rect x="13" y="3" width="3" height="1"/><rect x="20" y="3" width="1" height="1"/><rect x="24" y="3" width="3" height="1"/><rect x="28" y="3" width="1" height="1"/><rect x="34" y="3" width="1" height="1"/><rect x="38" y="3" width="1" height="1"/><rect x="40" y="3" width="1" height="1"/><rect x="44" y="3" width="1" height="1"/><rect x="46" y="3" width="4" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="10" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/><rect x="20" y="4" width="1" height="1"/><rect x="28" y="4" width="1" height="1"/><rect x="34" y="4" width="1" height="1"/><rect x="38" y="4" width="1" height="1"/><rect x="40" y="4" width="1" height="1"/><rect x="44" y="4" width="1" height="1"/><rect x="46" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="10" y="5" width="1" height="1"/><rect x="16" y="5" width="1" height="1"/><rect x="20" y="5" width="1" height="1"/><rect x="28" y="5" width="1" height="1"/><rect x="34" y="5" width="1" height="1"/><rect x="38" y="5" width="1" height="1"/><rect x="40" y="5" width="1" height="1"/><rect x="44" y="5" width="1" height="1"/><rect x="46" y="5" width="1" height="1"/><rect x="1" y="6" width="2" height="1"/><rect x="7" y="6" width="3" height="1"/><rect x="12" y="6" width="4" height="1"/><rect x="20" y="6" width="1" height="1"/><rect x="29" y="6" width="4" height="1"/><rect x="35" y="6" width="3" height="1"/><rect x="40" y="6" width="4" height="1"/><rect x="46" y="6" width="5" height="1"/></g><g class="cur"><rect x="53" y="0" width="4" height="1"/><rect x="53" y="1" width="4" height="1"/><rect x="53" y="2" width="4" height="1"/><rect x="53" y="3" width="4" height="1"/><rect x="53" y="4" width="4" height="1"/><rect x="53" y="5" width="4" height="1"/><rect x="53" y="6" width="4" height="1"/></g></svg><!--/wordmark-->
   <p class="lede">IDE di codice AI per il terminale. Un modello <em>orchestratore</em> divide il lavoro in compiti piccoli; i <em>sub-agenti</em> li eseguono in parallelo sul tuo progetto.</p>
   <div class="cmd"><code id="npmcmd">npm install -g @justapps/just-code</code><button data-copy="npmcmd">copia</button></div>
-  <p class="alt">macOS, Linux e Windows · Node.js 20 o successivo · altri metodi in <a href="#installazione">installazione</a></p>
+  <p class="alt">macOS, Linux e Windows · Node.js 20 o successivo · altri metodi in <a href="#installazione">installazione</a> · preferisci una finestra? <a href="#app">scarica l'app desktop</a></p>
 
   <div class="term" aria-label="Sessione di just-Code">
     <div class="tb"><span>~/progetti/agenda</span><span>just-code</span></div>
@@ -139,7 +150,9 @@ pre.block .c{color:var(--muted)}
 <section class="sec">
   <h2>SINTASSI</h2>
   <div class="body syn">
-    <b>just-code</b> [<b>--turbo</b>] [<b>--orchestrator</b> <i>provider:modello</i>] [<b>--sub</b> <i>provider:modello</i>] [<b>--parallel</b> <i>n</i>] [<i>richiesta</i>]
+    <b>just-code</b> [<b>--turbo</b>] [<b>--orchestrator</b> <i>provider:modello</i>] [<b>--sub</b> <i>provider:modello</i>] [<b>--parallel</b> <i>n</i>] [<i>richiesta</i>]<br>
+    <b>just-code gui</b> [<b>--port</b> <i>n</i>] [<b>--no-open</b>]<br>
+    <b>just-code setup</b>
   </div>
 </section>
 
@@ -236,6 +249,32 @@ pre.block .c{color:var(--muted)}
   </div>
 </section>
 
+<section class="sec" id="app">
+  <h2>APP DESKTOP<small>macOS · Windows · Linux</small></h2>
+  <div class="body">
+    <p>Lo stesso just-Code in una finestra: chat, sub-agenti in tempo reale, conferme con il diff, interruttore TURBO e configurazione guidata. Non servono Node.js né il terminale.</p>
+    <div class="dl" id="dl">
+      <a class="btn" data-os="mac-arm64" href="/download/mac-arm64"><b>macOS</b><span>Apple Silicon</span></a>
+      <a class="btn" data-os="mac-x64" href="/download/mac-x64"><b>macOS</b><span>Intel</span></a>
+      <a class="btn" data-os="windows" href="/download/windows"><b>Windows</b><span>10 e 11 · x64</span></a>
+      <a class="btn" data-os="linux" href="/download/linux"><b>Linux</b><span>AppImage · x64</span></a>
+    </div>
+    <p class="muted small">Tutte le versioni: <a href="https://github.com/justapps-it/JustCode/releases/latest">release su GitHub</a>.</p>
+    <figure class="shot">
+      <a href="gui-light.png"><picture>
+        <source srcset="gui-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="gui-light.png" width="1200" height="600" loading="lazy" alt="Finestra di just-Code: la richiesta dell'utente, il piano dell'orchestratore e quattro sub-agenti al lavoro nel pannello a destra.">
+      </picture></a>
+    </figure>
+    <ol class="n">
+      <li><span>All'avvio scegli la cartella del progetto; le volte dopo si riapre l'ultima. <b>File → Open Folder…</b> (<code class="i">Ctrl/Cmd+O</code>) apre un altro progetto in una nuova finestra.</span></li>
+      <li><span>La prima volta una configurazione guidata ti fa scegliere il provider, inserire la chiave, prova la connessione e i modelli.</span></li>
+      <li><span>Scrivi la richiesta: <code class="i">/</code> per i comandi, <code class="i">@</code> per citare un file, <b>Tab</b> per completare.</span></li>
+    </ol>
+    <p class="muted">L'app non è ancora firmata da Apple e Microsoft. <b>macOS</b>: apri l'app una volta, poi <i>Impostazioni di Sistema → Privacy e sicurezza → Apri comunque</i>. <b>Windows</b>: <i>Ulteriori informazioni → Esegui comunque</i>. Hai già just-Code da npm? <code class="i">just-code gui</code> apre la stessa interfaccia.</p>
+  </div>
+</section>
+
 <section class="sec" id="installazione">
   <h2>INSTALLAZIONE</h2>
   <div class="body">
@@ -325,6 +364,20 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
   document.addEventListener('keydown',e=>{ if(e.key==='t' && !e.metaKey && !e.ctrlKey && document.activeElement===document.body) btn.click(); });
 });
+</script>
+<script>
+// highlight the download for this computer
+(function(){
+  const ua=navigator.userAgent, p=(navigator.userAgentData&&navigator.userAgentData.platform)||navigator.platform||'';
+  let os=/Win/i.test(p+ua)?'windows':/Mac/i.test(p+ua)?'mac':/Linux/i.test(p+ua)&&!/Android/i.test(ua)?'linux':null;
+  if(!os) return;
+  const mark=(id)=>{const a=document.querySelector('.dl [data-os="'+id+'"]'); if(a) a.classList.add('me');};
+  if(os!=='mac') return mark(os);
+  // Apple Silicon cannot be told apart reliably from the user agent: ask the browser when it can
+  if(navigator.userAgentData&&navigator.userAgentData.getHighEntropyValues)
+    navigator.userAgentData.getHighEntropyValues(['architecture']).then(v=>mark(v.architecture==='x86'?'mac-x64':'mac-arm64')).catch(()=>mark('mac-arm64'));
+  else mark('mac-arm64');
+})();
 </script>
 </body>
 </html>

@@ -145,5 +145,10 @@ jobs:
           shopt -s nullglob
           TAG=v$(node -p "require('./package.json').version")
           files=(desktop/release/*.dmg desktop/release/*.exe desktop/release/*.AppImage)
+          # also a copy without the version, for stable links (code.justapps.it/download/<os>)
+          for f in "${files[@]}"; do
+            b=$(basename "$f"); n=$(echo "$b" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+[^-]*-/-/; s/-win-/-windows-/')
+            cp "$f" "desktop/release/$n"; files+=("desktop/release/$n")
+          done
           ls -la "${files[@]}"
           gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
