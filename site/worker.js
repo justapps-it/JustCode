@@ -2,7 +2,7 @@
 //  - www.code.justapps.it → code.justapps.it
 //  - /latest.tgz → latest GitHub release package (used by `npm install -g https://code.justapps.it/latest.tgz`)
 //  - everything else: static site in ./public
-const RELEASE = 'https://github.com/matthias-peterlini/just-code/releases/latest/download/just-code.tgz';
+const RELEASE = 'https://github.com/justapps-it/JustCode/releases/latest/download/just-code.tgz';
 
 export default {
   async fetch(request, env) {
