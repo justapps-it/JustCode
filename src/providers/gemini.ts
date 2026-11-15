@@ -49,6 +49,18 @@ export class GeminiProvider implements Provider {
     throw new ProviderError(NOT_CONNECTED);
   }
 
+  async listModels(signal?: AbortSignal): Promise<string[]> {
+    const res = await fetch(`${this.baseUrl}/models?pageSize=1000`, { headers: await this.authHeaders(), signal });
+    const json = (await res.json().catch(() => null)) as { models?: { name: string; supportedGenerationMethods?: string[] }[]; error?: { message?: string } } | null;
+    if (!res.ok) throw new ProviderError(`Gemini ${res.status}: ${json?.error?.message ?? res.statusText}`, res.status);
+    const ids = (json?.models ?? [])
+      .filter((m) => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => m.name.replace(/^models\//, ''))
+      .filter((id) => id.startsWith('gemini') && !/(embedding|tts|image|audio|live)/.test(id));
+    // always-current aliases first, then newest versions first
+    return [...new Set(ids)].sort((a, b) => Number(b.endsWith('-latest')) - Number(a.endsWith('-latest')) || b.localeCompare(a, undefined, { numeric: true }));
+  }
+
   async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal): Promise<ChatResult> {
     const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
     const contents: { role: 'user' | 'model'; parts: Part[] }[] = [];

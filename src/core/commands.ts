@@ -6,7 +6,6 @@ import { googleAccount, googleLogin, googleLogout, isGoogleLoggedIn } from '../a
 import {
   CONFIG_FILE,
   PROVIDER_IDS,
-  SUGGESTED_MODELS,
   fmtRef,
   googleOAuth,
   parseModelRef,
@@ -15,6 +14,7 @@ import {
   type ProviderId,
 } from '../config.js';
 import { NEED_PROJECT } from '../providers/gemini.js';
+import { clearModelCache, listModels } from './models.js';
 
 /** Slash commands shared by the terminal UI and the GUI. */
 export interface CommandSpec {
@@ -28,7 +28,7 @@ export const COMMANDS: CommandSpec[] = [
   { name: '/setup', desc: 'guided setup: provider, key, models, permissions' },
   { name: '/key', args: '<provider> <api_key>', desc: 'save an API key (gemini, groq, openrouter, openai, custom)' },
   { name: '/model', args: '<orchestrator|sub> <provider:model>', desc: 'choose models' },
-  { name: '/models', desc: 'list suggested models' },
+  { name: '/models', args: '[provider]', desc: 'list the models your providers offer' },
   { name: '/turbo', args: '[on|off]', desc: 'toggle TURBO mode (no confirmations)' },
   { name: '/parallel', args: '<n>', desc: 'max sub-agents running at once' },
   { name: '/status', desc: 'show configuration' },
@@ -141,6 +141,7 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
       const p = args[0] as ProviderId;
       if (!PROVIDER_IDS.includes(p) || !args[1]) return h.say(`Usage: /key <${PROVIDER_IDS.join('|')}> <api_key>`, 'error');
       h.setConfig({ ...cfg, providers: { ...cfg.providers, [p]: { ...cfg.providers[p], apiKey: args[1] } } });
+      clearModelCache(p);
       return h.say(`✔ API key for ${p} saved in ${CONFIG_FILE}`, 'ok');
     }
     case '/baseurl': {
@@ -157,10 +158,16 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
       h.setConfig(which === 'sub' ? { ...cfg, subagent: ref } : { ...cfg, orchestrator: ref });
       return h.say(`✔ ${which} → ${fmtRef(ref)}`, 'ok');
     }
-    case '/models':
+    case '/models': {
+      // live list from the providers you can use (e.g. /models gemini), suggestions for the others
+      const want = (args[0] ? [args[0]] : PROVIDER_IDS) as ProviderId[];
+      const lists = await Promise.all(want.filter((p) => PROVIDER_IDS.includes(p)).map((p) => listModels(cfg, p)));
       return h.say(
-        PROVIDER_IDS.map((p) => `${p.padEnd(11)} ${SUGGESTED_MODELS[p].join(', ')}`).join('\n') + '\n(any model id supported by the provider works)',
+        lists
+          .map((l) => `${l.provider.padEnd(11)} ${l.live ? '' : '(suggested) '}${l.models.slice(0, 25).join(', ')}${l.models.length > 25 ? ` … +${l.models.length - 25}` : ''}`)
+          .join('\n') + '\nUse: /model <orchestrator|sub> <provider:model>',
       );
+    }
     case '/parallel': {
       const n = Number(args[0]);
       if (!(n >= 1 && n <= 32)) return h.say('Usage: /parallel <1-32>', 'error');

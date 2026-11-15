@@ -36,6 +36,8 @@ export interface ChatResult {
 export interface Provider {
   id: string;
   chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal): Promise<ChatResult>;
+  /** Model ids the provider currently offers (for pickers and autocomplete). */
+  listModels?(signal?: AbortSignal): Promise<string[]>;
 }
 
 export class ProviderError extends Error {

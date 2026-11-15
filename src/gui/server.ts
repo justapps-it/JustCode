@@ -5,12 +5,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Orchestrator, type JustEvent } from '../agents/orchestrator.js';
 import { googleAccount, googleLogin } from '../auth/google.js';
-import { PROVIDER_IDS, fmtRef, googleOAuth, providerSettings, saveConfig, type Config } from '../config.js';
+import { PROVIDER_IDS, fmtRef, googleOAuth, parseModelRef, providerSettings, saveConfig, type Config, type ProviderId } from '../config.js';
 import { COMMANDS, runCommand, type Tone } from '../core/commands.js';
 import { complete, describeMentions, starterPrompts } from '../core/complete.js';
 import { PromptHistory } from '../core/history.js';
+import { clearModelCache, listModels, prefetchModels } from '../core/models.js';
 import { openAppWindow } from '../core/open.js';
-import { PRESETS, applySetup, needsSetup, presetById, testConnection } from '../core/setup.js';
+import { PRESETS, applySetup, hasCredentials, needsSetup, presetById, testConnection } from '../core/setup.js';
 import { listWorkspaceFiles, type PermissionRequest } from '../tools/index.js';
 
 const STATIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../gui');
@@ -70,6 +71,7 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
   const always = new Set<string>();
   let account = googleAccount();
 
+  prefetchModels(config);
   const refreshFiles = () => void listWorkspaceFiles(o.cwd).then((f) => (files = f));
   refreshFiles();
 
@@ -91,6 +93,7 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
     maxParallel: config.maxParallel,
     turbo: config.turbo,
     keys: Object.fromEntries(PROVIDER_IDS.map((p) => [p, !!providerSettings(config, p).apiKey])),
+    ready: PROVIDER_IDS.filter((p) => hasCredentials(config, p)),
     project: googleOAuth(config).quotaProject ?? null,
     account: account ?? null,
     needsSetup: needsSetup(config),
@@ -342,10 +345,32 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
           const q = u.searchParams.get('q') ?? '';
           return json(res, 200, complete(q, { cwd: o.cwd, config, files, history: history.items }));
         }
+        case 'GET /api/models': {
+          const p = (u.searchParams.get('provider') ?? '') as ProviderId;
+          if (!PROVIDER_IDS.includes(p)) return json(res, 400, { error: 'unknown provider' });
+          if (u.searchParams.get('refresh')) clearModelCache(p);
+          return json(res, 200, await listModels(config, p));
+        }
+        case 'POST /api/models': {
+          const b = await readBody(req);
+          const o = parseModelRef(String(b.orchestrator ?? ''));
+          const s = parseModelRef(String(b.subagent ?? ''));
+          if (!o || !s) return json(res, 400, { error: 'use provider:model' });
+          const n = Number(b.maxParallel);
+          setConfig({ ...config, orchestrator: o, subagent: s, maxParallel: n >= 1 && n <= 32 ? Math.round(n) : config.maxParallel });
+          say(`✔ orchestrator ${fmtRef(o)} → sub-agents ${fmtRef(s)} ×${config.maxParallel}`, 'ok');
+          return json(res, 200, summary());
+        }
         case 'GET /api/history':
           return json(res, 200, history.items);
         case 'POST /api/test': {
-          const draft = draftFrom(await readBody(req));
+          const b = await readBody(req);
+          if (typeof b.ref === 'string') {
+            const ref = parseModelRef(b.ref);
+            if (!ref) return json(res, 400, { error: 'use provider:model' });
+            return json(res, 200, await testConnection(config, ref));
+          }
+          const draft = draftFrom(b);
           return json(res, 200, await testConnection(draft, draft.orchestrator));
         }
         case 'POST /api/login': {
@@ -362,6 +387,8 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
         case 'POST /api/setup': {
           const draft = draftFrom(await readBody(req));
           setConfig(draft);
+          clearModelCache();
+          prefetchModels(draft);
           say(`✔ All set!  orchestrator ${fmtRef(draft.orchestrator)} → sub-agents ${fmtRef(draft.subagent)}`, 'ok');
           if (draft.turbo) send('turbo', { on: true });
           return json(res, 200, summary());

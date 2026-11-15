@@ -68,7 +68,29 @@
   </div>
 </div>
 
-<div class="burst" id="burst" hidden><div class="word">TURBO</div></div>
+<div class="modal" id="modelsDlg" hidden>
+  <div class="card wide">
+    <div class="sh"><b>◆ Models</b><span class="muted">pick from what your providers offer right now</span><button class="icon" id="modelsClose" title="Close">✕</button></div>
+    <div class="progress"><span style="width:100%"></span></div>
+    <div class="mrow" data-role="orchestrator">
+      <div class="mh"><b>Orchestrator</b><span class="muted">plans the work and delegates — pick a strong model</span></div>
+      <div class="mpick"><select class="mprov"></select><input class="mmodel" spellcheck="false" autocomplete="off" placeholder="model id"></div>
+      <div class="mlist"></div>
+      <div class="mstat muted"></div>
+    </div>
+    <div class="mrow" data-role="subagent">
+      <div class="mh"><b>Sub-agents</b><span class="muted">many small tasks in parallel — a fast, cheap model is best</span></div>
+      <div class="mpick"><select class="mprov"></select><input class="mmodel" spellcheck="false" autocomplete="off" placeholder="model id"></div>
+      <div class="mlist"></div>
+      <div class="mstat muted"></div>
+    </div>
+    <div class="mh"><b>Parallel sub-agents</b><input id="mpar" type="number" min="1" max="32" class="mnum"></div>
+    <div class="errbox" id="mtest" hidden></div>
+    <div class="row"><button class="btn" id="mTestBtn">Test orchestrator</button><button class="btn primary" id="mSave">Save</button></div>
+  </div>
+</div>
+
+<div class="burst" id="burst" hidden><div class="word" id="burstWord"></div></div>
 
 <script src="app.js"></script>
 </body>

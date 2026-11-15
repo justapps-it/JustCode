@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { PROVIDER_IDS, SUGGESTED_MODELS, DEFAULT_BASE_URLS, providerSettings, type Config } from '../config.js';
+import { PROVIDER_IDS, DEFAULT_BASE_URLS, providerSettings, type Config } from '../config.js';
 import { COMMANDS } from './commands.js';
+import { knownModels } from './models.js';
 
 export type SuggestionKind = 'command' | 'arg' | 'file' | 'history' | 'prompt';
 
@@ -147,7 +148,7 @@ export function complete(input: string, ctx: CompleteContext): Suggestion[] {
           ]);
         if (argIdx === 1) {
           const all = PROVIDER_IDS.flatMap((p) =>
-            SUGGESTED_MODELS[p].map((m) => ({ v: `${p}:${m}`, hint: providerSettings(ctx.config, p).apiKey || p === 'custom' ? 'ready' : 'needs a key' })),
+            knownModels(p).map((m) => ({ v: `${p}:${m}`, hint: providerSettings(ctx.config, p).apiKey || p === 'custom' ? 'ready' : 'needs a key' })),
           );
           // models of providers that are ready first
           all.sort((a, b) => Number(b.hint === 'ready') - Number(a.hint === 'ready'));

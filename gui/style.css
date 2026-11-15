@@ -157,11 +157,38 @@ textarea{flex:1;resize:none;border:0;background:none;color:inherit;font:inherit;
 .ok{color:var(--green)}.err{color:var(--red)}
 .errbox{white-space:pre-wrap;color:var(--muted);font-size:12.5px;border-left:2px solid var(--red);padding-left:10px;margin:8px 0;max-height:160px;overflow:auto}
 
+
+/* models dialog */
+.mrow{margin-bottom:18px}
+.mh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.mh .muted{font-size:12.5px}
+.mpick{display:flex;gap:8px}
+.mpick select,.mpick input,.mnum{font:inherit;color:inherit;background:var(--paper);border:1px solid var(--ink);padding:7px 9px;outline:none;min-width:0}
+.mpick select{flex:0 0 150px}
+.mpick input{flex:1}
+.mpick :focus,.mnum:focus{border-color:var(--orange)}
+.mnum{width:80px;margin-left:auto}
+.mlist{border:1px solid var(--rule);border-top:0;max-height:156px;overflow-y:auto}
+.mlist button{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--soft);padding:5px 9px;cursor:pointer;font-size:13px}
+.mlist button:hover,.mlist button.on{background:var(--soft)}
+.mlist button.on{font-weight:700}
+.mlist button .tag{color:var(--green);font-size:11px;font-weight:400}
+.mstat{font-size:12px;margin-top:4px}
+.mempty{font-size:12px;padding:6px 9px}
+.fix{margin-left:8px;border:1px solid currentColor;background:none;color:inherit;font:inherit;font-size:12px;padding:0 8px;cursor:pointer}
+.fix:hover{color:var(--orange)}
+@media (max-width:560px){.mpick{flex-direction:column}.mpick select{flex:none}}
+
 /* turbo burst */
-.burst{position:fixed;inset:0;z-index:20;pointer-events:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(255,90,31,.25),transparent 60%)}
+.burst{position:fixed;inset:0;z-index:20;pointer-events:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(255,90,31,.25),transparent 60%),color-mix(in srgb,var(--paper) 72%,transparent);animation:fade 1.75s ease forwards}
+@keyframes fade{0%{opacity:0}10%{opacity:1}80%{opacity:1}100%{opacity:0}}
 .burst[hidden]{display:none}
-.burst .word{font-size:clamp(64px,16vw,180px);font-weight:700;letter-spacing:.06em;background:linear-gradient(90deg,#ff3b3b,#ff8a00,#ffd600,#3dff6e,#00e5ff,#3d7bff,#b03dff,#ff3dcb,#ff3b3b);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:zoom 1.6s cubic-bezier(.2,.8,.2,1) forwards,rainbow .8s linear infinite}
+.burst .word{width:min(86vw,760px);animation:zoom 1.7s cubic-bezier(.2,.8,.2,1) forwards}
+.burst .word svg{display:block;width:100%;height:auto;animation:hue 1s linear infinite;filter:drop-shadow(0 0 12px rgba(255,90,31,.45))}
+.burst .word rect{transform-box:fill-box;transform-origin:center;animation:pix .35s cubic-bezier(.3,1.6,.5,1) backwards}
+@keyframes pix{from{transform:scale(0);opacity:0}}
+@keyframes hue{to{filter:hue-rotate(360deg) drop-shadow(0 0 12px rgba(255,90,31,.45))}}
 .spark{position:fixed;width:8px;height:8px;pointer-events:none;z-index:21;animation:fly 1.1s ease-out forwards}
-@keyframes zoom{0%{transform:scale(.2) skewX(-12deg);opacity:0}25%{transform:scale(1.15) skewX(-12deg);opacity:1}70%{transform:scale(1) skewX(-12deg);opacity:1}100%{transform:scale(1.6) skewX(-12deg);opacity:0}}
+@keyframes zoom{0%{transform:scale(.6);opacity:0}18%{transform:scale(1.06);opacity:1}72%{transform:scale(1);opacity:1}100%{transform:scale(1.35);opacity:0}}
 @keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(270deg);opacity:0}}
-@media (prefers-reduced-motion:reduce){.burst .word,.spark,.spin,.agent.running .bar span{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.burst .word,.burst .word svg,.burst .word rect,.spark,.spin,.agent.running .bar span{animation-duration:.01s}}

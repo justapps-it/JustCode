@@ -70,7 +70,14 @@ function renderItem(it) {
   if (it.kind === 'user') body = esc(it.text).replace(/(^|\s)@(\S+)/g, '$1<span class="o">@$2</span>');
   else if (it.kind === 'assistant') body = `<div class="md">${md(it.text)}</div>`;
   else if (it.kind === 'tool') body = `<b>${esc(it.name)}</b> ${esc(it.summary)}`;
-  else if (it.kind === 'info') body = linkify(it.text);
+  else if (it.kind === 'info') {
+    body = linkify(it.text);
+    // one-click fixes for the most common errors
+    if (it.tone === 'error' && /model|404|not found|no longer available|does not exist/i.test(it.text))
+      body += '<button class="fix" data-fix="models">Change model</button>';
+    else if (it.tone === 'error' && /(api key|not connected|not logged in|401|403|unauthori[sz]ed|permission)/i.test(it.text))
+      body += '<button class="fix" data-fix="setup">Open setup</button>';
+  }
   else if (it.kind === 'agents')
     body =
       `<div class="summary"><div class="muted">${it.agents.length} sub-agents</div>` +
@@ -83,6 +90,8 @@ function renderItem(it) {
         .join('') +
       '</div>';
   el.innerHTML = `<span class="gut">${GUT[it.kind] || ''}</span><div class="body">${body}</div>`;
+  el.querySelector('[data-fix="models"]')?.addEventListener('click', () => openModels());
+  el.querySelector('[data-fix="setup"]')?.addEventListener('click', () => openSetup());
   return el;
 }
 function addItem(it) {
@@ -124,13 +133,39 @@ function setConfig(c) {
 }
 
 /* ---------- turbo burst ---------- */
+// 5×7 pixel letters, same style as the just-Code wordmark
+const PIX = {
+  T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+  U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+};
+const RAINBOW = ['#FF3B3B', '#FF8A00', '#FFD600', '#3DFF6E', '#00E5FF', '#3D7BFF', '#B03DFF', '#FF3DCB'];
+function pixelWord(word) {
+  const W = word.length * 6 - 1;
+  let rects = '';
+  [...word].forEach((ch, i) =>
+    PIX[ch].forEach((row, y) =>
+      [...row].forEach((c, x) => {
+        if (c !== '#') return;
+        const X = i * 6 + x;
+        const col = RAINBOW[Math.floor((X / W) * RAINBOW.length) % RAINBOW.length];
+        rects += `<rect x="${X}" y="${y}" width="1" height="1" fill="${col}" style="animation-delay:${(X * 0.018 + Math.random() * 0.12).toFixed(3)}s"/>`;
+      }),
+    ),
+  );
+  return `<svg viewBox="-0.5 -0.5 ${W + 1} 8" shape-rendering="crispEdges" role="img" aria-label="${word}">${rects}</svg>`;
+}
 function burst() {
   const b = $('burst');
+  $('burstWord').innerHTML = pixelWord('TURBO');
   b.hidden = false;
   const colors = ['#FF3B3B', '#FF8A00', '#FFD600', '#3DFF6E', '#00E5FF', '#3D7BFF', '#B03DFF', '#FF3DCB'];
   for (let i = 0; i < 46; i++) {
     const s = document.createElement('span');
     s.className = 'spark';
+    s.style.borderRadius = '0';
     const ang = Math.random() * Math.PI * 2;
     const dist = 140 + Math.random() * Math.min(innerWidth, innerHeight) * 0.45;
     s.style.left = innerWidth / 2 + 'px';
@@ -142,7 +177,7 @@ function burst() {
     document.body.appendChild(s);
     setTimeout(() => s.remove(), 1500);
   }
-  setTimeout(() => (b.hidden = true), 1650);
+  setTimeout(() => (b.hidden = true), 1750);
 }
 
 /* ---------- permissions ---------- */
@@ -267,11 +302,7 @@ function submit(text = input.value) {
 }
 $('send').addEventListener('click', () => (S.busy ? api('interrupt', {}) : submit()));
 $('turbo').addEventListener('change', (e) => api('turbo', { on: e.target.checked }));
-$('models').addEventListener('click', () => {
-  input.value = '/model ';
-  input.focus();
-  refreshSuggest();
-});
+$('models').addEventListener('click', () => openModels());
 $('settings').addEventListener('click', () => openSetup());
 document.addEventListener('keydown', (e) => {
   if (!$('perm').hidden && document.activeElement?.tagName !== 'INPUT') {
@@ -476,6 +507,101 @@ async function finish(turbo) {
 }
 $('setup').addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && W.step !== 'test') back();
+});
+
+
+/* ---------- models dialog ---------- */
+const PROVIDERS = ['gemini', 'groq', 'openrouter', 'openai', 'custom'];
+const M = { orchestrator: null, subagent: null };
+function splitRef(ref) {
+  const i = String(ref).indexOf(':');
+  return i > 0 ? [ref.slice(0, i), ref.slice(i + 1)] : ['gemini', ref];
+}
+async function loadModels(row, refresh) {
+  const st = M[row.dataset.role];
+  const prov = row.querySelector('.mprov').value;
+  row.querySelector('.mstat').textContent = 'loading models…';
+  const r = await api(`models?provider=${encodeURIComponent(prov)}${refresh ? '&refresh=1' : ''}`);
+  if (row.querySelector('.mprov').value !== prov) return;
+  st.list = Array.isArray(r.models) ? r.models : [];
+  row.querySelector('.mstat').textContent = r.live
+    ? `${st.list.length} models available from ${prov} right now`
+    : `suggested models${r.error ? ' — ' + r.error : ''}`;
+  drawModelList(row);
+}
+function drawModelList(row) {
+  const st = M[row.dataset.role];
+  const input = row.querySelector('.mmodel');
+  const q = st.typed ? input.value.trim().toLowerCase() : '';
+  const list = (st.list || []).filter((m) => !q || m.toLowerCase().includes(q) || m === input.value).slice(0, 200);
+  row.querySelector('.mlist').innerHTML = list
+    .map((m) => `<button type="button" data-m="${esc(m)}" class="${m === input.value ? 'on' : ''}"><span>${esc(m)}</span>${/-latest$/.test(m) ? '<span class="tag">always current</span>' : ''}</button>`)
+    .join('') || '<div class="mempty muted">no match — the id you typed will be used as is</div>';
+  row.querySelectorAll('.mlist button').forEach((b) =>
+    b.addEventListener('click', () => {
+      input.value = b.dataset.m;
+      drawModelList(row);
+    }),
+  );
+}
+function openModels() {
+  const c = S.config;
+  $('mpar').value = c.maxParallel;
+  $('mtest').hidden = true;
+  document.querySelectorAll('#modelsDlg .mrow').forEach((row) => {
+    const role = row.dataset.role;
+    const [prov, model] = splitRef(role === 'orchestrator' ? c.orchestrator : c.subagent);
+    M[role] = { list: [] };
+    const sel = row.querySelector('.mprov');
+    sel.innerHTML = PROVIDERS.map((p) => `<option value="${p}"${p === prov ? ' selected' : ''}>${p}${(c.ready || []).includes(p) ? '' : ' (no key)'}</option>`).join('');
+    sel.onchange = () => {
+      row.querySelector('.mmodel').value = '';
+      M[role].typed = false;
+      loadModels(row);
+    };
+    const inp = row.querySelector('.mmodel');
+    inp.value = model;
+    inp.oninput = () => {
+      M[role].typed = true;
+      drawModelList(row);
+    };
+    loadModels(row);
+  });
+  $('modelsDlg').hidden = false;
+  document.querySelector('#modelsDlg .mmodel').focus();
+}
+function refOf(role) {
+  const row = document.querySelector(`#modelsDlg .mrow[data-role="${role}"]`);
+  const m = row.querySelector('.mmodel').value.trim();
+  return m ? `${row.querySelector('.mprov').value}:${m}` : '';
+}
+$('modelsClose').addEventListener('click', () => ($('modelsDlg').hidden = true));
+$('modelsDlg').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('modelsDlg').hidden = true;
+});
+$('mTestBtn').addEventListener('click', async () => {
+  const ref = refOf('orchestrator');
+  const box = $('mtest');
+  if (!ref) return;
+  box.hidden = false;
+  box.textContent = `testing ${ref}…`;
+  const r = await api('test', { ref });
+  box.textContent = r.ok ? `✔ ${ref} answered` : `✘ ${r.error}`;
+  box.style.borderColor = r.ok ? 'var(--green)' : 'var(--red)';
+});
+$('mSave').addEventListener('click', async () => {
+  const orchestrator = refOf('orchestrator');
+  const subagent = refOf('subagent');
+  if (!orchestrator || !subagent) return;
+  const r = await api('models', { orchestrator, subagent, maxParallel: Number($('mpar').value) });
+  if (r.error) {
+    $('mtest').hidden = false;
+    $('mtest').textContent = '✘ ' + r.error;
+    return;
+  }
+  setConfig(r);
+  $('modelsDlg').hidden = true;
+  input.focus();
 });
 
 /* ---------- events ---------- */

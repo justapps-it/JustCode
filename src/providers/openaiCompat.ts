@@ -44,7 +44,7 @@ export class OpenAICompatProvider implements Provider {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     if (this.id === 'openrouter') {
-      headers['HTTP-Referer'] = 'https://github.com/just-code';
+      headers['HTTP-Referer'] = 'https://code.justapps.it';
       headers['X-Title'] = 'just-Code';
     }
 
@@ -67,5 +67,22 @@ export class OpenAICompatProvider implements Provider {
       toolCalls,
       usage: json.usage ? { input: json.usage.prompt_tokens ?? 0, output: json.usage.completion_tokens ?? 0 } : undefined,
     };
+  }
+
+  async listModels(signal?: AbortSignal): Promise<string[]> {
+    if (this.requireKey && !this.apiKey) throw new ProviderError(`${this.id}: missing API key.`);
+    const headers: Record<string, string> = {};
+    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
+    const res = await fetch(`${this.baseUrl.replace(/\/$/, '')}/models`, { headers, signal });
+    const json = (await res.json().catch(() => ({}))) as any;
+    if (!res.ok) throw new ProviderError(`${this.id} ${res.status}: ${json?.error?.message ?? res.statusText}`, res.status);
+    const list: any[] = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
+    return list
+      // agents need tool calling: keep models that declare it (OpenRouter) or don't say
+      .filter((m) => !Array.isArray(m?.supported_parameters) || m.supported_parameters.includes('tools'))
+      .filter((m) => m?.active !== false)
+      .map((m) => String(m?.id ?? m?.name ?? ''))
+      .filter((id) => id && !/(embed|whisper|tts|dall-e|moderation|guard|transcri|image|audio|realtime)/i.test(id))
+      .sort();
   }
 }

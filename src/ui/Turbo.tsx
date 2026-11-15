@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import { RAINBOW, lerpColors, C } from './theme.js';
 import { useTick } from './hooks.js';
 
+// 5×7 pixel letters (same style as the just-Code wordmark); each pixel is drawn 2 cells wide = square
 const FONT: Record<string, string[]> = {
-  T: ['█████', '  █  ', '  █  ', '  █  ', '  █  '],
-  U: ['█   █', '█   █', '█   █', '█   █', ' ███ '],
-  R: ['████ ', '█   █', '████ ', '█  █ ', '█   █'],
-  B: ['████ ', '█   █', '████ ', '█   █', '████ '],
-  O: [' ███ ', '█   █', '█   █', '█   █', ' ███ '],
+  T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+  U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  R: ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
 };
 const WORD = 'TURBO';
 const SPARKS = ['✦', '✧', '⋆', '·', '⚡', '✺', '*'];
@@ -27,7 +28,9 @@ export function TurboBurst({ onDone }: { onDone: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
 
-  const width = WORD.length * 6 + 8;
+  const { stdout } = useStdout();
+  const px = (stdout?.columns ?? 80) >= 70 ? 2 : 1; // square pixels when there is room
+  const width = WORD.length * 6 * px + 4;
   const sparkRow = (row: number) =>
     Array.from({ length: width }, (_, x) => {
       const r = rand(x * 31 + row * 7 + Math.floor(tick / 2) * 13);
@@ -40,27 +43,24 @@ export function TurboBurst({ onDone }: { onDone: () => void }) {
       );
     });
 
-  const grow = Math.min(1, tick / 12); // letters slide in
+  // pixels pop in column by column (with a little jitter), like the GUI
+  const cols = WORD.length * 6;
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={lerpColors(RAINBOW, tick / 30)} paddingX={2} marginY={1}>
       <Text>{sparkRow(0)}</Text>
-      {Array.from({ length: 5 }, (_, row) => (
+      {Array.from({ length: 7 }, (_, row) => (
         <Text key={row}>
-          {'    '}
-          {WORD.split('').map((ch, li) =>
-            li / WORD.length <= grow ? (
-              <Text key={li}>
-                {FONT[ch][row].split('').map((px, i) => (
-                  <Text key={i} color={lerpColors(RAINBOW, tick / 25 + (li * 6 + i) / 40 + row / 20)} bold>
-                    {px}
-                  </Text>
-                ))}
-                {' '}
+          {'  '}
+          {Array.from({ length: cols }, (_, X) => {
+            const ch = WORD[Math.floor(X / 6)];
+            const on = FONT[ch][row][X % 6] === '#';
+            const shown = X + rand(X * 7 + row) * 4 <= tick * 2.2;
+            return (
+              <Text key={X} color={lerpColors(RAINBOW, X / cols + tick / 25)}>
+                {(on && shown ? '█' : ' ').repeat(px)}
               </Text>
-            ) : (
-              <Text key={li}>{'      '}</Text>
-            ),
-          )}
+            );
+          })}
         </Text>
       ))}
       <Text>
