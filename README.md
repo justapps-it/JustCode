@@ -47,7 +47,22 @@ Al primo avvio just-Code ti guida in 5 passi:
 
 Puoi rifarla quando vuoi con `/setup` oppure `just-code setup`.
 
-## Interfaccia grafica
+## App desktop
+
+Nelle [release su GitHub](https://github.com/justapps-it/JustCode/releases/latest) trovi l'app già pronta, senza bisogno di Node.js né del terminale:
+
+| Sistema | File |
+|---|---|
+| macOS (Apple Silicon) | `just-Code-<versione>-mac-arm64.dmg` |
+| macOS (Intel) | `just-Code-<versione>-mac-x64.dmg` |
+| Windows | `just-Code-<versione>-win-x64.exe` |
+| Linux | `just-Code-<versione>-linux-x86_64.AppImage` |
+
+All'avvio scegli la cartella del progetto (*File → Apri cartella*, `Ctrl/Cmd+O`; ogni cartella si apre nella sua finestra, con le recenti nel menu). L'app non è firmata da Apple/Microsoft: su macOS, dopo il primo tentativo di apertura, vai in *Impostazioni di Sistema → Privacy e sicurezza → Apri comunque*; su Windows clicca *Ulteriori informazioni → Esegui comunque*.
+
+L'app è costruita con Electron dalla cartella `desktop/` (`cd desktop && npm install && npm start` per provarla da sorgente, dopo `npm run build` nella radice).
+
+## Interfaccia grafica dal terminale
 
 ```bash
 just-code gui
@@ -138,6 +153,7 @@ src/
   ui/                     Ink: logo animato, prompt con suggerimenti, setup, pannello agenti, permessi, TURBO
   gui/server.ts           server locale della GUI (SSE + API, solo 127.0.0.1 con token)
 gui/                      interfaccia grafica (HTML/CSS/JS, font IBM Plex Mono incluso)
+desktop/                  app desktop Electron (main.mjs) + configurazione degli installer
 ```
 
 Ispirato all'esperienza d'uso di [Claude Code](https://github.com/anthropics/claude-code).

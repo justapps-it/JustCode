@@ -1,0 +1,84 @@
+{
+  "name": "just-code-desktop",
+  "private": true,
+  "version": "0.4.0",
+  "description": "just-Code desktop app — orchestrator + parallel AI sub-agents",
+  "homepage": "https://code.justapps.it",
+  "author": "justapps",
+  "license": "MIT",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "prepare-app": "node scripts/prepare.mjs",
+    "start": "npm run prepare-app && electron .",
+    "dist": "npm run prepare-app && electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "it.justapps.justcode",
+    "productName": "just-Code",
+    "artifactName": "just-Code-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.mjs",
+      "package.json",
+      "engine/**/*",
+      "build/icon.png"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "title": "just-Code ${version}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "just-Code"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Development",
+      "synopsis": "AI coding IDE with parallel sub-agents",
+      "syncDesktopName": true,
+      "executableName": "just-code"
+    },
+    "publish": null
+  },
+  "desktopName": "just-code.desktop"
+}

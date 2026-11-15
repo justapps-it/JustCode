@@ -45,6 +45,9 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.state.outputs.gh }}
+      tag: ${{ steps.state.outputs.tag }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -94,3 +97,46 @@ jobs:
             npm install -g @justapps/just-code
             ```
             oppure `curl -fsSL https://code.justapps.it/install.sh | sh` (macOS/Linux) · `irm https://code.justapps.it/install.ps1 | iex` (Windows)
+
+            ## App desktop
+            Scarica il file per il tuo sistema qui sotto (compare qualche minuto dopo la release):
+            - **macOS** Apple Silicon: `just-Code-*-mac-arm64.dmg` · Intel: `just-Code-*-mac-x64.dmg`
+            - **Windows**: `just-Code-*-win-x64.exe`
+            - **Linux**: `just-Code-*-linux-x86_64.AppImage`
+
+            L'app non è firmata da Apple/Microsoft: su macOS, dopo il primo tentativo di apertura, vai in *Impostazioni di Sistema → Privacy e sicurezza → Apri comunque*; su Windows clicca *Ulteriori informazioni → Esegui comunque*.
+
+  desktop:
+    name: desktop (${{ matrix.os }})
+    needs: release
+    if: needs.release.outputs.created == 'true' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci
+        working-directory: desktop
+      - name: Build installers
+        run: npm run dist
+        working-directory: desktop
+      - name: Attach to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          fail_on_unmatched_files: false
+          files: |
+            desktop/release/*.dmg
+            desktop/release/*.exe
+            desktop/release/*.AppImage
