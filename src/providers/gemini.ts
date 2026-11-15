@@ -86,7 +86,12 @@ export class GeminiProvider implements Provider {
       signal,
     );
     const json = (await res.json().catch(() => ({}))) as any;
-    if (!res.ok) throw new ProviderError(`Gemini ${res.status}: ${json?.error?.message ?? res.statusText}`, res.status);
+    if (!res.ok) {
+      let msg = `Gemini ${res.status}: ${json?.error?.message ?? res.statusText}`;
+      if (res.status === 404 && !/-latest$/.test(model))
+        msg += `\nTip: use an alias that always points to the current model — /model orchestrator gemini:gemini-pro-latest · /model sub gemini:gemini-flash-latest (or gemini-flash-lite-latest).`;
+      throw new ProviderError(msg, res.status);
+    }
 
     const cand = json.candidates?.[0];
     const parts: Part[] = cand?.content?.parts ?? [];

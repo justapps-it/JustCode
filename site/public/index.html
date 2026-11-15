@@ -159,10 +159,10 @@ pre.block .c{color:var(--muted)}
 <section class="sec">
   <h2>DESCRIZIONE</h2>
   <div class="body">
-    <p>Avvia just-code nella cartella del progetto e scrivi cosa vuoi ottenere. La richiesta va all'orchestratore, di solito un modello grande come Gemini 2.5 Pro. L'orchestratore legge il codice quanto basta per capire il problema, poi chiama lo strumento <code class="i">spawn_agents</code> con un elenco di compiti.</p>
+    <p>Avvia just-code nella cartella del progetto e scrivi cosa vuoi ottenere. La richiesta va all'orchestratore, di solito un modello grande come Gemini Pro. L'orchestratore legge il codice quanto basta per capire il problema, poi chiama lo strumento <code class="i">spawn_agents</code> con un elenco di compiti.</p>
 <div class="diagram">
   richiesta ──▶ <span class="o">orchestratore</span> ──┬──▶ explorer    ──┐
-                <span class="m">gemini-2.5-pro</span>  ├──▶ bug-fixer   ──┤
+             <span class="m">gemini-pro-latest</span>  ├──▶ bug-fixer   ──┤
                                 ├──▶ test-writer ──┼──▶ <span class="o">orchestratore</span> ──▶ risposta
                                 └──▶ docs        ──┘    <span class="m">verifica</span></div>
     <ol class="n">
@@ -209,14 +209,14 @@ pre.block .c{color:var(--muted)}
     <p>Orchestratore e sub-agenti possono usare provider diversi. Il modello si scrive <code class="i">provider:modello</code>.</p>
     <div class="tw"><table>
       <tr><th>provider</th><th>accesso</th><th>esempio</th></tr>
-      <tr><td>gemini</td><td><code class="i">/login</code> con account Google, oppure <code class="i">GEMINI_API_KEY</code></td><td>gemini:gemini-2.5-pro</td></tr>
+      <tr><td>gemini</td><td><code class="i">/login</code> con account Google, oppure <code class="i">GEMINI_API_KEY</code></td><td>gemini:gemini-pro-latest</td></tr>
       <tr><td>groq</td><td><code class="i">GROQ_API_KEY</code></td><td>groq:llama-3.3-70b-versatile</td></tr>
       <tr><td>openrouter</td><td><code class="i">OPENROUTER_API_KEY</code></td><td>openrouter:deepseek/deepseek-chat</td></tr>
       <tr><td>openai</td><td><code class="i">OPENAI_API_KEY</code></td><td>openai:gpt-4.1-mini</td></tr>
       <tr><td>custom</td><td>qualsiasi API compatibile OpenAI: Ollama, LM Studio, vLLM</td><td>custom:llama3.1</td></tr>
     </table></div>
     <p style="margin-top:14px">Esempio: pianificare con Gemini ed eseguire su Groq.</p>
-<pre class="block">/model orchestrator gemini:gemini-2.5-pro
+<pre class="block">/model orchestrator gemini:gemini-pro-latest
 /model sub groq:llama-3.3-70b-versatile
 /key groq <span class="c">gsk_…</span></pre>
     <p class="muted">L'orchestratore può anche scegliere un modello diverso per un singolo agente.</p>
@@ -309,7 +309,7 @@ just-code              <span class="c"># oppure: jc</span>
 </section>
 
 <footer class="foot">
-  <span>just-Code 0.4.0</span>
+  <span>just-Code 0.4.1</span>
   <span><a href="https://justapps.it">justapps.it</a> · <a href="/privacy">privacy</a> · <a href="/termini">termini</a> · <a href="https://github.com/justapps-it/JustCode">github</a></span>
   <span>JUST-CODE(1)</span>
 </footer>

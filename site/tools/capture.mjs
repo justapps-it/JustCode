@@ -36,9 +36,9 @@ function agentsAt(ms) {
     return A(i, name, model, 'running', acts[k], k, startAt, null);
   };
   return [
-    s(0, 2600, ['search /new Date\\(/', 'read_file src/lib/date.ts', 'read_file src/views/Task.tsx', 'Il bug è in parseDue(): new Date("2026-11-12") è UTC'], 'a1', 'explorer', 'gemini:gemini-2.5-flash'),
+    s(0, 2600, ['search /new Date\\(/', 'read_file src/lib/date.ts', 'read_file src/views/Task.tsx', 'Il bug è in parseDue(): new Date("2026-11-12") è UTC'], 'a1', 'explorer', 'gemini:gemini-flash-latest'),
     s(300, 4300, ['read_file src/lib/date.ts', 'edit_file src/lib/date.ts', 'run_shell npx tsc --noEmit', 'parseDue usa ora la data locale; tsc ok'], 'a2', 'bug-fixer', 'groq:llama-3.3-70b-versatile'),
-    s(500, 5200, ['list_files tests/', 'write_file tests/date.test.ts', 'run_shell npm test', '6 test nuovi in tests/date.test.ts, npm test ok'], 'a3', 'test-writer', 'gemini:gemini-2.5-flash'),
+    s(500, 5200, ['list_files tests/', 'write_file tests/date.test.ts', 'run_shell npm test', '6 test nuovi in tests/date.test.ts, npm test ok'], 'a3', 'test-writer', 'gemini:gemini-flash-latest'),
     s(2600, 4600, ['read_file README.md', 'edit_file README.md', 'README: sezione "Date e fusi orari"'], 'a4', 'docs', 'openrouter:deepseek/deepseek-chat'),
   ];
 }
@@ -47,12 +47,12 @@ const sessionFrames = [];
   const out = mkOut(COLS);
   const view = (ms, phase) => {
     const kids = [item({ kind: 'user', text: prompt }, 1)];
-    if (phase === 'think') kids.push(h(AgentPanel, { key: 'p', agents: [], orchStatus: 'thinking…', model: 'gemini:gemini-2.5-pro' }));
+    if (phase === 'think') kids.push(h(AgentPanel, { key: 'p', agents: [], orchStatus: 'thinking…', model: 'gemini:gemini-pro-latest' }));
     if (phase === 'run') {
       kids.push(item({ kind: 'assistant', text: plan }, 2));
       const ag = agentsAt(ms);
       const done = ag.every((a) => a.status === 'done');
-      kids.push(h(AgentPanel, { key: 'p', agents: ag, orchStatus: done ? 'reviewing reports…' : 'delegating to 4 agents…', model: 'gemini:gemini-2.5-pro' }));
+      kids.push(h(AgentPanel, { key: 'p', agents: ag, orchStatus: done ? 'reviewing reports…' : 'delegating to 4 agents…', model: 'gemini:gemini-pro-latest' }));
     }
     if (phase === 'end') {
       kids.push(item({ kind: 'assistant', text: plan }, 2));

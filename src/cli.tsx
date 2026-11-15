@@ -15,7 +15,7 @@ Usage: just-code [options] [prompt]
 
 Options:
   --turbo                     start in TURBO mode (no confirmations)
-  --orchestrator <p:model>    e.g. gemini:gemini-2.5-pro
+  --orchestrator <p:model>    e.g. gemini:gemini-pro-latest
   --sub <p:model>             e.g. groq:llama-3.3-70b-versatile
   --parallel <n>              max sub-agents running at once
   -h, --help                  show this help

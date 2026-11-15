@@ -56,7 +56,7 @@ export const DEFAULT_BASE_URLS: Record<ProviderId, string> = {
 };
 
 export const SUGGESTED_MODELS: Record<ProviderId, string[]> = {
-  gemini: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  gemini: ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.1-pro-preview', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'],
   groq: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'qwen/qwen3-32b'],
   openrouter: ['google/gemini-2.5-pro', 'anthropic/claude-sonnet-4.5', 'deepseek/deepseek-chat'],
   openai: ['gpt-4.1', 'gpt-4.1-mini'],
@@ -73,8 +73,8 @@ const ENV_KEYS: Record<ProviderId, string[]> = {
 
 export function defaultConfig(): Config {
   return {
-    orchestrator: { provider: 'gemini', model: 'gemini-2.5-pro' },
-    subagent: { provider: 'gemini', model: 'gemini-2.5-flash' },
+    orchestrator: { provider: 'gemini', model: 'gemini-flash-latest' },
+    subagent: { provider: 'gemini', model: 'gemini-flash-lite-latest' },
     providers: {},
     google: {},
     turbo: false,
@@ -94,11 +94,23 @@ export function loadConfig(): Config {
   return {
     ...base,
     ...file,
-    orchestrator: { ...base.orchestrator, ...file.orchestrator },
-    subagent: { ...base.subagent, ...file.subagent },
+    orchestrator: upgradeModel({ ...base.orchestrator, ...file.orchestrator }),
+    subagent: upgradeModel({ ...base.subagent, ...file.subagent }),
     providers: { ...base.providers, ...file.providers },
     google: { ...base.google, ...file.google },
   };
+}
+
+/**
+ * Gemini 1.x / 2.x models are being retired ("no longer available to new users"):
+ * move saved configs to Google's aliases, which always point to the current model.
+ */
+export function upgradeModel(ref: ModelRef): ModelRef {
+  if (ref.provider !== 'gemini') return ref;
+  const m = /^(?:models\/)?gemini-(?:1\.\d|2\.\d)(?:-[\w.]+)*$/.exec(ref.model);
+  if (!m) return ref;
+  const model = /flash-lite/.test(ref.model) ? 'gemini-flash-lite-latest' : /flash/.test(ref.model) ? 'gemini-flash-latest' : 'gemini-pro-latest';
+  return { ...ref, model };
 }
 
 export function saveConfig(cfg: Config): void {

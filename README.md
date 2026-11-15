@@ -9,13 +9,13 @@ Provider supportati: **Google Gemini** (login con account Google oppure API key)
 ```
 ❯ aggiungi i test per utils/date.ts e aggiorna il README
 
-╭──────────────────────────────────────────────────────────────╮
-│ ⠹ orchestrator gemini:gemini-2.5-pro  delegating to 3 agents… │
-│   sub-agents ████████░░░░░░░░ 1/3                             │
-│   ├─ ✔ explorer    gemini:gemini-2.5-flash · 4.1s · 5 tools   │
-│   ├─ ⠼ test-writer groq:llama-3.3-70b · 6.0s  write_file …     │
-│   └─ ⠦ docs        gemini:gemini-2.5-flash  edit_file README   │
-╰──────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────╮
+│ ⠹ orchestrator gemini:gemini-pro-latest  delegating to 3 agents… │
+│   sub-agents ████████░░░░░░░░ 1/3                                │
+│   ├─ ✔ explorer    gemini:gemini-flash-latest · 4.1s · 5 tools   │
+│   ├─ ⠼ test-writer groq:llama-3.3-70b · 6.0s  write_file …       │
+│   └─ ⠦ docs        gemini:gemini-flash-latest  edit_file README  │
+╰──────────────────────────────────────────────────────────────────╯
 ```
 
 ## Installazione
@@ -101,7 +101,7 @@ Per usare un tuo client OAuth (tipo **Desktop app**): `/google-client ~/Download
 Scegli i modelli:
 
 ```
-/model orchestrator gemini:gemini-2.5-pro
+/model orchestrator gemini:gemini-pro-latest
 /model sub groq:llama-3.3-70b-versatile
 ```
 
@@ -134,7 +134,7 @@ Gli agenti possono lavorare solo dentro la cartella in cui hai avviato just-Code
 
 Tasti: `Tab` completa, `↑/↓` suggerimenti e cronologia, `Esc` interrompe il lavoro in corso, `Ctrl+C` due volte esce.
 
-Opzioni da riga di comando: `just-code --turbo --orchestrator gemini:gemini-2.5-pro --sub groq:llama-3.3-70b-versatile --parallel 6 "prompt iniziale"`
+Opzioni da riga di comando: `just-code --turbo --orchestrator gemini:gemini-pro-latest --sub groq:llama-3.3-70b-versatile --parallel 6 "prompt iniziale"`
 
 La configurazione sta in `~/.just-code/config.json` (puoi cambiare la cartella con `JUST_CODE_HOME`).
 
