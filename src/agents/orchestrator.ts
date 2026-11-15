@@ -10,6 +10,8 @@ export type AgentStatus = 'queued' | 'running' | 'done' | 'error';
 export type JustEvent =
   | { type: 'orch:thinking' }
   | { type: 'orch:text'; text: string }
+  | { type: 'orch:reasoning'; text: string }
+  | { type: 'agent:reasoning'; id: string; text: string }
   | { type: 'orch:tool'; name: string; summary: string }
   | { type: 'agent:spawn'; id: string; name: string; task: string; model: string }
   | { type: 'agent:start'; id: string }
@@ -143,6 +145,8 @@ export class Orchestrator extends EventEmitter {
               { role: 'user', content: spec.task },
             ],
             tools: this.fileTools(spec.name, signal, (name, summary) => this.emitEv({ type: 'agent:tool', id, name, summary })),
+            thinking: cfg.showThinking,
+            onThinking: (text) => this.emitEv({ type: 'agent:reasoning', id, text }),
             onUsage: (input, output) => this.emitEv({ type: 'usage', input, output }),
           });
           this.emitEv({ type: 'agent:done', id, result: report });
@@ -179,6 +183,8 @@ export class Orchestrator extends EventEmitter {
           ...this.fileTools('orchestrator', signal, (name, summary) => this.emitEv({ type: 'orch:tool', name, summary })),
         ],
         onText: (text) => this.emitEv({ type: 'orch:text', text }),
+        thinking: cfg.showThinking,
+        onThinking: (text) => this.emitEv({ type: 'orch:reasoning', text }),
         onToolStart: (call, summary) => {
           if (call.name === 'spawn_agents') this.emitEv({ type: 'orch:tool', name: call.name, summary });
         },

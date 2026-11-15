@@ -150,7 +150,7 @@ pre.block .c{color:var(--muted)}
 <section class="sec">
   <h2>SINTASSI</h2>
   <div class="body syn">
-    <b>just-code</b> [<b>--turbo</b>] [<b>--orchestrator</b> <i>provider:modello</i>] [<b>--sub</b> <i>provider:modello</i>] [<b>--parallel</b> <i>n</i>] [<i>richiesta</i>]<br>
+    <b>just-code</b> [<b>--turbo</b>] [<b>--thinking</b>] [<b>--orchestrator</b> <i>provider:modello</i>] [<b>--sub</b> <i>provider:modello</i>] [<b>--parallel</b> <i>n</i>] [<i>richiesta</i>]<br>
     <b>just-code gui</b> [<b>--port</b> <i>n</i>] [<b>--no-open</b>]<br>
     <b>just-code setup</b>
   </div>
@@ -241,6 +241,7 @@ pre.block .c{color:var(--muted)}
       <tr><td>/baseurl <i>provider</i> <i>url</i></td><td>endpoint personalizzato</td></tr>
       <tr><td>/parallel <i>n</i></td><td>agenti attivi insieme (1–32)</td></tr>
       <tr><td>/turbo</td><td>attiva o spegne turbo</td></tr>
+      <tr><td>/thinking</td><td>mostra o nasconde il ragionamento dei modelli (Gemini, DeepSeek, Qwen, gpt-oss…)</td></tr>
       <tr><td>/status</td><td>configurazione attuale</td></tr>
       <tr><td>/clear, /exit</td><td>nuova conversazione, esci</td></tr>
       <tr><td>Esc</td><td>interrompe il lavoro in corso</td></tr>
@@ -309,7 +310,7 @@ just-code              <span class="c"># oppure: jc</span>
 </section>
 
 <footer class="foot">
-  <span>just-Code 0.4.2</span>
+  <span>just-Code 0.5.0</span>
   <span><a href="https://justapps.it">justapps.it</a> · <a href="/privacy">privacy</a> · <a href="/termini">termini</a> · <a href="https://github.com/justapps-it/JustCode">github</a></span>
   <span>JUST-CODE(1)</span>
 </footer>

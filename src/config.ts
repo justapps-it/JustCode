@@ -32,6 +32,8 @@ export interface Config {
   /** Set once the guided setup has been completed (or skipped). */
   setupDone?: boolean;
   turbo: boolean;
+  /** Show the models' reasoning (thought summaries) in the UI. */
+  showThinking: boolean;
   maxParallel: number;
   maxSteps: number;
 }
@@ -78,6 +80,7 @@ export function defaultConfig(): Config {
     providers: {},
     google: {},
     turbo: false,
+    showThinking: false,
     maxParallel: 4,
     maxSteps: 25,
   };

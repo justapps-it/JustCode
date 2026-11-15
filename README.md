@@ -112,6 +112,8 @@ L'orchestratore può anche scegliere un modello diverso per ogni singolo sub-age
 Di default, prima di **scrivere o modificare file** e di **eseguire comandi shell**, just-Code chiede conferma:
 `[y]` sì · `[a]` sempre per questo tool · `[n]` no · `[t]` **TURBO**.
 
+**Ragionamento:** con `/thinking on` (oppure `just-code --thinking`, o l'interruttore 💭 *Thinking* nella GUI) just-Code mostra il ragionamento dei modelli che lo rendono disponibile: riassunti dei pensieri di Gemini 2.5/3, il campo `reasoning` di OpenRouter e Groq (gpt-oss), `reasoning_content` di DeepSeek, i blocchi `<think>` di Qwen3/DeepSeek-R1 su Ollama. Quello dell'orchestratore compare nella conversazione, quello dei sub-agenti nel loro pannello.
+
 **TURBO** (`/turbo`, il tasto `t` in un prompt, oppure `just-code --turbo`) fa agire gli agenti senza chiedere conferma, e si attiva con un'animazione arcobaleno. `/turbo` lo spegne.
 Gli agenti possono lavorare solo dentro la cartella in cui hai avviato just-Code.
 
@@ -130,6 +132,8 @@ Gli agenti possono lavorare solo dentro la cartella in cui hai avviato just-Code
 | `/models` | modelli suggeriti |
 | `/parallel <n>` | numero massimo di sub-agenti in parallelo |
 | `/turbo` | attiva o disattiva TURBO |
+| `/thinking [on\|off]` | mostra il ragionamento dei modelli |
+| `/models [provider]` | modelli disponibili ora presso i tuoi provider |
 | `/status`, `/clear`, `/exit` | |
 
 Tasti: `Tab` completa, `↑/↓` suggerimenti e cronologia, `Esc` interrompe il lavoro in corso, `Ctrl+C` due volte esce.

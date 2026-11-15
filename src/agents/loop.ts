@@ -16,6 +16,9 @@ export interface LoopOptions {
   onToolStart?: (call: ToolCall, summary: string) => void;
   onToolEnd?: (call: ToolCall, result: string) => void;
   onText?: (text: string) => void;
+  /** Called with the model's reasoning when `thinking` is on and the provider exposes it. */
+  onThinking?: (text: string) => void;
+  thinking?: boolean;
   onUsage?: (input: number, output: number) => void;
 }
 
@@ -25,8 +28,9 @@ export async function runLoop(o: LoopOptions): Promise<string> {
   const defs = o.tools.map((t) => t.def);
   for (let step = 0; step < o.maxSteps; step++) {
     if (o.signal?.aborted) throw new Error('Interrupted');
-    const res = await o.provider.chat(o.model, o.messages, defs, o.signal);
+    const res = await o.provider.chat(o.model, o.messages, defs, o.signal, { thinking: o.thinking });
     if (res.usage) o.onUsage?.(res.usage.input, res.usage.output);
+    if (o.thinking && res.thinking?.trim()) o.onThinking?.(res.thinking.trim());
     o.messages.push({ role: 'assistant', content: res.text, toolCalls: res.toolCalls.length ? res.toolCalls : undefined });
     if (!res.toolCalls.length) return res.text;
     if (res.text.trim()) o.onText?.(res.text);

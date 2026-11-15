@@ -1,4 +1,4 @@
-import { fetchRetry, ProviderError, type ChatResult, type Message, type Provider, type ToolDef } from './types.js';
+import { fetchRetry, ProviderError, splitThink, type ChatOptions, type ChatResult, type Message, type Provider, type ToolDef } from './types.js';
 
 /** Any OpenAI-compatible Chat Completions API: Groq, OpenRouter, OpenAI, Ollama, LM Studio, vLLM... */
 export class OpenAICompatProvider implements Provider {
@@ -9,7 +9,7 @@ export class OpenAICompatProvider implements Provider {
     private requireKey = true,
   ) {}
 
-  async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal): Promise<ChatResult> {
+  async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal, opts?: ChatOptions): Promise<ChatResult> {
     if (this.requireKey && !this.apiKey)
       throw new ProviderError(`${this.id}: missing API key. Use /key ${this.id} <KEY> or set the env variable.`);
 
@@ -43,6 +43,8 @@ export class OpenAICompatProvider implements Provider {
     }
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
+    // OpenRouter returns the reasoning of thinking models in `reasoning` when asked
+    if (opts?.thinking && this.id === 'openrouter') body.include_reasoning = true;
     if (this.id === 'openrouter') {
       headers['HTTP-Referer'] = 'https://code.justapps.it';
       headers['X-Title'] = 'just-Code';
@@ -62,8 +64,12 @@ export class OpenAICompatProvider implements Provider {
       }
       return { id: tc.id ?? `call_${Date.now()}_${i}`, name: tc.function?.name, args };
     });
+    // reasoning: `reasoning` (OpenRouter, Groq gpt-oss), `reasoning_content` (DeepSeek, vLLM), or <think> tags
+    const split = splitThink(typeof msg.content === 'string' ? msg.content : '');
+    const reasoning = [msg.reasoning, msg.reasoning_content, split.thinking].filter((x) => typeof x === 'string' && x.trim()).join('\n\n');
     return {
-      text: typeof msg.content === 'string' ? msg.content : '',
+      text: split.text,
+      thinking: reasoning || undefined,
       toolCalls,
       usage: json.usage ? { input: json.usage.prompt_tokens ?? 0, output: json.usage.completion_tokens ?? 0 } : undefined,
     };

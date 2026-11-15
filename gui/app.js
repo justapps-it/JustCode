@@ -59,7 +59,7 @@ function md(text) {
 }
 
 /* ---------- transcript ---------- */
-const GUT = { user: '❯', assistant: '●', tool: '└', info: '·', agents: '└' };
+const GUT = { user: '❯', assistant: '●', tool: '└', info: '·', agents: '└', thinking: '✻' };
 function linkify(s) {
   return esc(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 }
@@ -69,7 +69,13 @@ function renderItem(it) {
   let body = '';
   if (it.kind === 'user') body = esc(it.text).replace(/(^|\s)@(\S+)/g, '$1<span class="o">@$2</span>');
   else if (it.kind === 'assistant') body = `<div class="md">${md(it.text)}</div>`;
-  else if (it.kind === 'tool') body = `<b>${esc(it.name)}</b> ${esc(it.summary)}`;
+  else if (it.kind === 'thinking') {
+    const first = it.text.split('\n').find((l) => l.trim()) || '';
+    const short = it.text.split('\n').length <= 6 && it.text.length < 600;
+    body =
+      `<details class="think-box"${short ? ' open' : ''}><summary>thinking${it.who && it.who !== 'orchestrator' ? ' · ' + esc(it.who) : ''}` +
+      `${short ? '' : ' — ' + esc(first.replace(/[*#`]/g, '').slice(0, 90))}</summary><div class="md">${md(it.text)}</div></details>`;
+  } else if (it.kind === 'tool') body = `<b>${esc(it.name)}</b> ${esc(it.summary)}`;
   else if (it.kind === 'info') {
     body = linkify(it.text);
     // one-click fixes for the most common errors
@@ -129,6 +135,7 @@ function setConfig(c) {
   S.config = c;
   $('models').textContent = `⬢ ${c.orchestrator} → ${c.subagent} ×${c.maxParallel}`;
   $('turbo').checked = !!c.turbo;
+  $('thinking').checked = !!c.showThinking;
   document.body.classList.toggle('turbo-on', !!c.turbo);
 }
 
@@ -302,6 +309,7 @@ function submit(text = input.value) {
 }
 $('send').addEventListener('click', () => (S.busy ? api('interrupt', {}) : submit()));
 $('turbo').addEventListener('change', (e) => api('turbo', { on: e.target.checked }));
+$('thinking').addEventListener('change', (e) => api('thinking', { on: e.target.checked }).then(setConfig));
 $('models').addEventListener('click', () => openModels());
 $('settings').addEventListener('click', () => openSetup());
 document.addEventListener('keydown', (e) => {

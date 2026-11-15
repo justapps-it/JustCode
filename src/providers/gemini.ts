@@ -1,6 +1,6 @@
 import { getGoogleAccessToken } from '../auth/google.js';
 import type { GoogleOAuthSettings } from '../config.js';
-import { fetchRetry, ProviderError, type ChatResult, type JSONSchema, type Message, type Provider, type ToolCall, type ToolDef } from './types.js';
+import { fetchRetry, ProviderError, type ChatResult, type JSONSchema, type Message, type Provider, type ToolCall, type ToolDef, type ChatOptions } from './types.js';
 
 interface Part {
   text?: string;
@@ -61,7 +61,7 @@ export class GeminiProvider implements Provider {
     return [...new Set(ids)].sort((a, b) => Number(b.endsWith('-latest')) - Number(a.endsWith('-latest')) || b.localeCompare(a, undefined, { numeric: true }));
   }
 
-  async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal): Promise<ChatResult> {
+  async chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal, opts?: ChatOptions): Promise<ChatResult> {
     const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
     const contents: { role: 'user' | 'model'; parts: Part[] }[] = [];
     const push = (role: 'user' | 'model', parts: Part[]) => {
@@ -85,7 +85,10 @@ export class GeminiProvider implements Provider {
       }
     }
 
-    const body: Record<string, unknown> = { contents, generationConfig: { temperature: 0.4 } };
+    const generationConfig: Record<string, unknown> = { temperature: 0.4 };
+    // thought summaries (Gemini 2.5+ / 3.x); models without thinking ignore it
+    if (opts?.thinking) generationConfig.thinkingConfig = { includeThoughts: true };
+    const body: Record<string, unknown> = { contents, generationConfig };
     if (system) body.systemInstruction = { parts: [{ text: system }] };
     if (tools.length)
       body.tools = [
@@ -108,9 +111,11 @@ export class GeminiProvider implements Provider {
     const cand = json.candidates?.[0];
     const parts: Part[] = cand?.content?.parts ?? [];
     let text = '';
+    let thinking = '';
     const toolCalls: ToolCall[] = [];
     parts.forEach((p, i) => {
-      if (p.text && !p.thought) text += p.text;
+      if (p.text && p.thought) thinking += (thinking ? '\n\n' : '') + p.text.trim();
+      else if (p.text) text += p.text;
       if (p.functionCall)
         toolCalls.push({
           id: p.functionCall.id ?? `call_${Date.now()}_${i}`,
@@ -122,6 +127,11 @@ export class GeminiProvider implements Provider {
     if (!text && !toolCalls.length && cand?.finishReason && cand.finishReason !== 'STOP')
       text = `(Gemini stopped: ${cand.finishReason})`;
     const u = json.usageMetadata;
-    return { text, toolCalls, usage: u ? { input: u.promptTokenCount ?? 0, output: u.candidatesTokenCount ?? 0 } : undefined };
+    return {
+      text,
+      thinking: thinking || undefined,
+      toolCalls,
+      usage: u ? { input: u.promptTokenCount ?? 0, output: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) } : undefined,
+    };
   }
 }

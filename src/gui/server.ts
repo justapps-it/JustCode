@@ -27,6 +27,7 @@ const MIME: Record<string, string> = {
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
+  | { kind: 'thinking'; text: string; who: string }
   | { kind: 'info'; text: string; tone: Tone }
   | { kind: 'tool'; agent: string; name: string; summary: string }
   | { kind: 'agents'; agents: AgentView[] };
@@ -92,6 +93,7 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
     subagent: fmtRef(config.subagent),
     maxParallel: config.maxParallel,
     turbo: config.turbo,
+    showThinking: !!config.showThinking,
     keys: Object.fromEntries(PROVIDER_IDS.map((p) => [p, !!providerSettings(config, p).apiKey])),
     ready: PROVIDER_IDS.filter((p) => hasCredentials(config, p)),
     project: googleOAuth(config).quotaProject ?? null,
@@ -137,13 +139,27 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
   const updateAgent = (id: string, f: (a: AgentView) => AgentView) => {
     agents = agents.map((a) => (a.id === id ? f(a) : a));
   };
+  // once every sub-agent of a wave has finished, show their summary right away
+  const flushAgents = () => {
+    if (agents.length && agents.every((a) => a.status === 'done' || a.status === 'error')) {
+      push({ kind: 'agents', agents });
+      agents = [];
+    }
+  };
   orch.on('event', (e: JustEvent) => {
+    if (e.type === 'orch:text' || e.type === 'orch:reasoning' || e.type === 'orch:tool') flushAgents();
     switch (e.type) {
       case 'orch:thinking':
         status = 'thinking…';
         break;
       case 'orch:text':
         push({ kind: 'assistant', text: e.text });
+        break;
+      case 'orch:reasoning':
+        push({ kind: 'thinking', text: e.text, who: 'orchestrator' });
+        break;
+      case 'agent:reasoning':
+        updateAgent(e.id, (a) => ({ ...a, activity: '💭 ' + e.text.replace(/\s+/g, ' ').slice(0, 160) }));
         break;
       case 'orch:tool':
         if (e.name === 'spawn_agents') status = `delegating to ${e.summary}…`;
@@ -335,6 +351,11 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
               }
           }
           return json(res, 200, { ok: true });
+        }
+        case 'POST /api/thinking': {
+          const b = await readBody(req);
+          setConfig({ ...config, showThinking: b.on === true });
+          return json(res, 200, summary());
         }
         case 'POST /api/turbo': {
           const b = await readBody(req);

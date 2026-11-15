@@ -29,15 +29,38 @@ export type Message =
 
 export interface ChatResult {
   text: string;
+  /** The model's reasoning / thought summary, when the provider exposes it. */
+  thinking?: string;
   toolCalls: ToolCall[];
   usage?: { input: number; output: number };
 }
 
 export interface Provider {
   id: string;
-  chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal): Promise<ChatResult>;
+  chat(model: string, messages: Message[], tools: ToolDef[], signal?: AbortSignal, opts?: ChatOptions): Promise<ChatResult>;
   /** Model ids the provider currently offers (for pickers and autocomplete). */
   listModels?(signal?: AbortSignal): Promise<string[]>;
+}
+
+export interface ChatOptions {
+  /** Ask the provider for its reasoning / thought summaries (shown in the UI). */
+  thinking?: boolean;
+}
+
+/** Splits `<think>…</think>` blocks (Qwen, DeepSeek-R1, Ollama…) out of a reply. */
+export function splitThink(content: string): { text: string; thinking: string } {
+  const thoughts: string[] = [];
+  let text = content.replace(/<think>([\s\S]*?)(<\/think>|$)/gi, (_m, t: string) => {
+    if (t.trim()) thoughts.push(t.trim());
+    return '';
+  });
+  // some servers drop the opening tag and only send "...reasoning</think>answer"
+  const close = text.indexOf('</think>');
+  if (close >= 0) {
+    if (text.slice(0, close).trim()) thoughts.push(text.slice(0, close).trim());
+    text = text.slice(close + 8);
+  }
+  return { text: thoughts.length ? text.replace(/^\s+/, '') : text, thinking: thoughts.join('\n\n') };
 }
 
 export class ProviderError extends Error {

@@ -156,6 +156,8 @@ export function complete(input: string, ctx: CompleteContext): Suggestion[] {
         }
         return [];
       }
+      case '/thinking':
+        return argIdx === 0 ? opts([{ v: 'on', hint: 'show reasoning' }, { v: 'off', hint: 'hide it' }], false) : [];
       case '/turbo':
         return argIdx === 0 ? opts([{ v: 'on', hint: 'no confirmations' }, { v: 'off', hint: 'ask before writing / running' }], false) : [];
       case '/parallel':

@@ -1,7 +1,7 @@
 {
   "name": "just-code-desktop",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "just-Code desktop app — orchestrator + parallel AI sub-agents",
   "homepage": "https://code.justapps.it",
   "author": "justapps",

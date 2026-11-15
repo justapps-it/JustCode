@@ -64,6 +64,45 @@ assert.equal(done.providers.groq.apiKey, 'k');
 assert.deepEqual(done.subagent, { provider: 'groq', model: 'llama-3.3-70b-versatile' });
 assert.equal(needsSetup(done), false);
 
+// --- thinking: <think> tags, Gemini thought parts, OpenAI-style reasoning ---
+const { splitThink } = await import('../dist/providers/types.js');
+assert.deepEqual(splitThink('<think>plan A</think>\nAnswer'), { text: 'Answer', thinking: 'plan A' });
+assert.deepEqual(splitThink('no tags'), { text: 'no tags', thinking: '' });
+assert.deepEqual(splitThink('half reasoning</think>Done'), { text: 'Done', thinking: 'half reasoning' });
+{
+  const http = await import('node:http');
+  const seen = [];
+  const srv = http.createServer((req, res) => {
+    let b = '';
+    req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      const j = JSON.parse(b);
+      seen.push(j);
+      res.setHeader('content-type', 'application/json');
+      if (req.url.includes(':generateContent'))
+        return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'I should greet.', thought: true }, { text: 'Hello!' }] }, finishReason: 'STOP' }] }));
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: '<think>tag thought</think>Hi', reasoning: 'field thought' } }] }));
+    });
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  const { GeminiProvider } = await import('../dist/providers/gemini.js');
+  const { OpenAICompatProvider } = await import('../dist/providers/openaiCompat.js');
+  const g = new GeminiProvider(base, 'k', {});
+  const r1 = await g.chat('m', [{ role: 'user', content: 'hi' }], [], undefined, { thinking: true });
+  assert.equal(r1.text, 'Hello!');
+  assert.equal(r1.thinking, 'I should greet.');
+  assert.deepEqual(seen.at(-1).generationConfig.thinkingConfig, { includeThoughts: true });
+  await g.chat('m', [{ role: 'user', content: 'hi' }], []);
+  assert.equal(seen.at(-1).generationConfig.thinkingConfig, undefined, 'no thoughts requested when off');
+  const o = new OpenAICompatProvider('openrouter', base + '/v1', 'k');
+  const r2 = await o.chat('m', [{ role: 'user', content: 'hi' }], [], undefined, { thinking: true });
+  assert.equal(r2.text, 'Hi');
+  assert.equal(r2.thinking, 'field thought\n\ntag thought');
+  assert.equal(seen.at(-1).include_reasoning, true);
+  srv.close();
+}
+
 // --- GUI server ---
 const { startGui } = await import('../dist/gui/server.js');
 const gui = await startGui({ cwd, config: done, version: 'test', open: false });

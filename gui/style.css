@@ -42,6 +42,23 @@ kbd{font:11px var(--font);border:1px solid var(--rule);padding:0 4px;margin-left
 .turbo input:focus-visible+.track{outline:2px solid var(--orange);outline-offset:2px}
 @keyframes rainbow{to{background-position:300% 0}}
 
+.think{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;user-select:none;border:1px solid var(--rule);padding:3px 8px;color:var(--muted)}
+.think input{position:absolute;opacity:0;pointer-events:none}
+.think .tbox{filter:grayscale(1);opacity:.6}
+.think:has(input:checked){border-color:var(--ink);color:var(--ink)}
+.think:has(input:checked) .tbox{filter:none;opacity:1}
+.think:has(input:focus-visible){outline:2px solid var(--orange);outline-offset:2px}
+@media (max-width:560px){.think .tl{display:none}}
+/* thinking in the transcript */
+.item.thinking .gut{color:var(--muted)}
+details.think-box{border-left:2px solid var(--rule);padding-left:12px;color:var(--muted);font-size:13px}
+details.think-box summary{cursor:pointer;list-style:none;font-style:italic}
+details.think-box summary::-webkit-details-marker{display:none}
+details.think-box summary::before{content:"▸ ";font-style:normal}
+details.think-box[open] summary::before{content:"▾ "}
+details.think-box .md{margin-top:6px;font-style:italic}
+details.think-box .md code{font-style:normal}
+
 /* layout */
 .layout{flex:1;display:flex;min-height:0}
 .chat{flex:1;overflow-y:auto;padding:20px 16px 8px;min-width:0}

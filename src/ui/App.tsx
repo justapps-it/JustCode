@@ -24,6 +24,7 @@ type Item =
   | { id: number; kind: 'header' }
   | { id: number; kind: 'user'; text: string }
   | { id: number; kind: 'assistant'; text: string }
+  | { id: number; kind: 'thinking'; text: string; who: string }
   | { id: number; kind: 'info'; text: string; color?: string }
   | { id: number; kind: 'error'; text: string }
   | { id: number; kind: 'tool'; agent: string; name: string; summary: string }
@@ -88,12 +89,23 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
   // --- orchestrator events -------------------------------------------------
   useEffect(() => {
     const on = (e: JustEvent) => {
+      // once every sub-agent of a wave has finished, move their summary into the transcript
+      if ((e.type === 'orch:text' || e.type === 'orch:reasoning' || e.type === 'orch:tool') && agentsRef.current.length && agentsRef.current.every((a) => a.status === 'done' || a.status === 'error')) {
+        push({ kind: 'agents', agents: agentsRef.current });
+        updateAgents(() => []);
+      }
       switch (e.type) {
         case 'orch:thinking':
           setOrchStatus('thinking…');
           break;
         case 'orch:text':
           push({ kind: 'assistant', text: e.text });
+          break;
+        case 'orch:reasoning':
+          push({ kind: 'thinking', text: e.text, who: 'orchestrator' });
+          break;
+        case 'agent:reasoning':
+          updateAgents((a) => a.map((x) => (x.id === e.id ? { ...x, activity: '💭 ' + e.text.replace(/\s+/g, ' ').slice(0, 90) } : x)));
           break;
         case 'orch:tool':
           if (e.name === 'spawn_agents') setOrchStatus(`delegating to ${e.summary}…`);
@@ -308,6 +320,7 @@ function StatusBar({ config, tokens, account }: { config: Config; tokens: { inpu
       </Text>
       <Text>
         <Text color={C.dim}>{`↑${tokens.input} ↓${tokens.output}  `}</Text>
+        {config.showThinking ? <Text color={C.dim}>{'💭  '}</Text> : null}
         {config.turbo ? (
           <Text bold color={lerpColors(RAINBOW, tick / 20)}>
             ⚡ TURBO
@@ -354,6 +367,24 @@ export function ItemView({ it, config, cwd }: { it: Item; config: Config; cwd: s
           </Box>
         </Box>
       );
+    case 'thinking': {
+      const lines = it.text.split('\n');
+      const MAX = 14;
+      return (
+        <Box marginTop={1} paddingX={1} flexDirection="column">
+          <Text color={C.dim}>
+            {'✻ '}
+            <Text italic>{`thinking${it.who !== 'orchestrator' ? ` · ${it.who}` : ''}`}</Text>
+          </Text>
+          <Box borderStyle="single" borderLeft borderTop={false} borderRight={false} borderBottom={false} borderColor={C.dim} paddingLeft={1} flexDirection="column">
+            <Text color={C.gray} italic>
+              {lines.slice(0, MAX).join('\n')}
+            </Text>
+            {lines.length > MAX ? <Text color={C.dim}>{`… ${lines.length - MAX} more lines`}</Text> : null}
+          </Box>
+        </Box>
+      );
+    }
     case 'tool':
       return (
         <Box paddingX={1}>

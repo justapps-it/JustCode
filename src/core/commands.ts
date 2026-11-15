@@ -30,6 +30,7 @@ export const COMMANDS: CommandSpec[] = [
   { name: '/model', args: '<orchestrator|sub> <provider:model>', desc: 'choose models' },
   { name: '/models', args: '[provider]', desc: 'list the models your providers offer' },
   { name: '/turbo', args: '[on|off]', desc: 'toggle TURBO mode (no confirmations)' },
+  { name: '/thinking', args: '[on|off]', desc: "show the models' reasoning" },
   { name: '/parallel', args: '<n>', desc: 'max sub-agents running at once' },
   { name: '/status', desc: 'show configuration' },
   { name: '/login', args: '[project-id]', desc: 'sign in with Google; usage billed to your own Cloud project' },
@@ -65,7 +66,7 @@ export function statusText(cfg: Config, cwd: string): string {
   return (
     `orchestrator  ${fmtRef(cfg.orchestrator)}\nsub-agents    ${fmtRef(cfg.subagent)}  (max ${cfg.maxParallel} parallel)\n` +
     `google login  ${isGoogleLoggedIn() ? `✔ ${googleAccount() ?? ''}` : '✘'}  project ${googleOAuth(cfg).quotaProject ?? '—'}\n` +
-    `api keys      ${keys}\nturbo         ${cfg.turbo ? 'ON ⚡' : 'off'}\nworkspace     ${cwd}\nconfig        ${CONFIG_FILE}`
+    `api keys      ${keys}\nturbo         ${cfg.turbo ? 'ON ⚡' : 'off'}\nthinking      ${cfg.showThinking ? 'shown 💭' : 'hidden'}\nworkspace     ${cwd}\nconfig        ${CONFIG_FILE}`
   );
 }
 
@@ -88,6 +89,16 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
       return h.say('✨ conversation cleared');
     case '/turbo':
       return h.setTurbo(args[0] ? args[0] === 'on' : !cfg.turbo);
+    case '/thinking': {
+      const on = args[0] ? args[0] === 'on' : !cfg.showThinking;
+      h.setConfig({ ...cfg, showThinking: on });
+      return h.say(
+        on
+          ? '💭 Thinking on — the reasoning of models that expose it (Gemini 2.5+/3, gpt-oss, DeepSeek-R1, Qwen3…) is shown. /thinking off to hide.'
+          : 'Thinking hidden.',
+        on ? 'accent' : 'info',
+      );
+    }
     case '/login': {
       let next = cfg;
       if (args[0]) {

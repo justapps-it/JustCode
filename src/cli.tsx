@@ -15,6 +15,7 @@ Usage: just-code [options] [prompt]
 
 Options:
   --turbo                     start in TURBO mode (no confirmations)
+  --thinking                  show the models' reasoning
   --orchestrator <p:model>    e.g. gemini:gemini-pro-latest
   --sub <p:model>             e.g. groq:llama-3.3-70b-versatile
   --parallel <n>              max sub-agents running at once
@@ -40,6 +41,7 @@ for (let i = 0; i < argv.length; i++) {
     console.log(`just-Code ${VERSION}`);
     process.exit(0);
   } else if (a === '--turbo') cfg.turbo = true;
+  else if (a === '--thinking') cfg.showThinking = true;
   else if (a === '--orchestrator' || a === '--sub') {
     const ref = parseModelRef(next() ?? '');
     if (!ref) {
