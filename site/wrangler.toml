@@ -6,8 +6,5 @@ routes = [
   { pattern = "code.justapps.it", custom_domain = true },
   { pattern = "www.code.justapps.it", custom_domain = true },
 ]
-
-[assets]
-directory = "./public"
-binding = "ASSETS"
-run_worker_first = true
+# The static files in ./public are embedded into the worker by tools/gen-files.mjs:
+#   node tools/gen-files.mjs && npx wrangler deploy
