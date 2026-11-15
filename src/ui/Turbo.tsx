@@ -12,7 +12,8 @@ const FONT: Record<string, string[]> = {
   O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
 };
 const WORD = 'TURBO';
-const SPARKS = ['✦', '✧', '⋆', '·', '⚡', '✺', '*'];
+// ASCII only: symbols like ✦ ⚡ are 2 cells wide in some terminals (Windows Terminal), which breaks redraws
+const SPARKS = ['*', '+', '.', 'x', '*', '+'];
 const FLAMES = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
 function rand(seed: number) {
@@ -46,7 +47,7 @@ export function TurboBurst({ onDone }: { onDone: () => void }) {
   // pixels pop in column by column (with a little jitter), like the GUI
   const cols = WORD.length * 6;
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={lerpColors(RAINBOW, tick / 30)} paddingX={2} marginY={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={lerpColors(RAINBOW, tick / 30)} paddingX={2} marginY={1} width={width + 6} flexShrink={0} alignSelf="flex-start">
       <Text>{sparkRow(0)}</Text>
       {Array.from({ length: 7 }, (_, row) => (
         <Text key={row}>
@@ -72,7 +73,7 @@ export function TurboBurst({ onDone }: { onDone: () => void }) {
       </Text>
       <Text>{sparkRow(1)}</Text>
       <Text bold color={lerpColors(RAINBOW, tick / 15)}>
-        {'   ⚡ TURBO MODE ON — agents act without asking ⚡'}
+        {'   >> TURBO MODE ON - agents act without asking <<'}
       </Text>
     </Box>
   );
