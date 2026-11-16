@@ -37,7 +37,7 @@ export const COMMANDS: CommandSpec[] = [
   { name: '/parallel', args: '<n>', desc: 'max sub-agents running at once' },
   { name: '/status', desc: 'show configuration' },
   { name: '/login', args: '[project-id]', desc: 'sign in with Google; usage billed to your own Cloud project' },
-  { name: '/project', args: '<project-id>', desc: 'Google Cloud project used with the Google login' },
+  { name: '/project', args: '[project-id]', desc: 'pick the Google Cloud project billed with the Google login' },
   { name: '/logout', desc: 'sign out of Google' },
   { name: '/google-client', args: '<client_secret.json>', desc: 'use your own Google OAuth client' },
   { name: '/baseurl', args: '<provider> <url>', desc: 'custom OpenAI-compatible endpoint' },
@@ -60,6 +60,8 @@ export interface CommandHost {
   onAccount?(email?: string): void;
   openSetup?(): void;
   openBudget?(): void;
+  /** Opens the Google Cloud project picker (after login, or on /project with no id). */
+  openProjects?(): void;
   exit?(): void;
 }
 
@@ -135,7 +137,10 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
         h.onAccount?.(email);
         h.say(`✔ Logged in with Google${email ? ` as ${email}` : ''}.`, 'ok');
         if (g.quotaProject) h.say(`Gemini is ready — usage billed to your project ${g.quotaProject}.`, 'ok');
-        else h.say(NEED_PROJECT, 'warn');
+        else if (h.openProjects) {
+          h.say('Pick the Google Cloud project to bill (its credits / free trial are used).', 'info');
+          h.openProjects();
+        } else h.say(NEED_PROJECT, 'warn');
       } catch (e) {
         h.say((e as Error).message, 'error');
       } finally {
@@ -144,7 +149,10 @@ export async function runCommand(line: string, h: CommandHost): Promise<void> {
       return;
     }
     case '/project':
-      if (!args[0]) return h.say('Usage: /project <google-cloud-project-id>', 'error');
+      if (!args[0]) {
+        if (h.openProjects) return h.openProjects();
+        return h.say('Usage: /project <google-cloud-project-id>', 'error');
+      }
       h.setConfig({ ...cfg, google: { ...cfg.google, quotaProject: args[0] } });
       return h.say(`✔ Google login usage now billed to project ${args[0]}.`, 'ok');
     case '/logout':

@@ -196,6 +196,9 @@ textarea{flex:1;resize:none;border:0;background:none;color:inherit;font:inherit;
 .fix:hover{color:var(--orange)}
 @media (max-width:560px){.mpick{flex-direction:column}.mpick select{flex:none}}
 
+.opts.gp{max-height:300px;overflow-y:auto}
+.opt[disabled]{opacity:.45;cursor:default}
+
 /* budget */
 .budget-chip{display:flex;align-items:center;gap:7px}
 .budget-chip .dot{width:8px;height:8px;background:var(--bcol,var(--green));flex-shrink:0}

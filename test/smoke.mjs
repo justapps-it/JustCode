@@ -132,6 +132,43 @@ assert.deepEqual(splitThink('half reasoning</think>Done'), { text: 'Done', think
   assert.equal(new BudgetTracker(null).exceeded, false);
 }
 
+// --- Google Cloud project picker helpers (fetch mocked) ---
+{
+  const { CONFIG_DIR } = await import('../dist/config.js');
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(path.join(CONFIG_DIR, 'google-auth.json'), JSON.stringify({ access_token: 'tok', expires_at: Date.now() + 3600e3 }));
+  const { listProjects, isGenLangEnabled, enableGenLang } = await import('../dist/auth/gcp.js');
+  const realFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? 'GET', headers: init.headers ?? {} });
+    const j = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    if (String(url).startsWith('https://cloudresourcemanager.googleapis.com/v1/projects')) {
+      if (!String(url).includes('pageToken'))
+        return j({ projects: [{ projectId: 'zeta-1', name: 'Zeta' }, { projectId: 'old-9', lifecycleState: 'DELETE_REQUESTED' }], nextPageToken: 'p2' });
+      return j({ projects: [{ projectId: 'alpha-2', name: 'Alpha' }] });
+    }
+    if (String(url).endsWith(':enable')) return j({ name: 'operations/x' });
+    if (String(url).includes('serviceusage')) return j({ state: String(url).includes('alpha-2') ? 'ENABLED' : 'DISABLED' });
+    return j({}, 404);
+  };
+  try {
+    const g = { clientId: 'id' };
+    const ps = await listProjects(g);
+    assert.deepEqual(ps.map((p) => [p.projectId, p.active]), [['alpha-2', true], ['zeta-1', true], ['old-9', false]], 'paged, active first');
+    assert.equal(calls[0].headers.Authorization, 'Bearer tok');
+    assert.equal(await isGenLangEnabled(g, 'alpha-2'), true);
+    assert.equal(await isGenLangEnabled(g, 'zeta-1'), false);
+    await enableGenLang(g, 'zeta-1');
+    const en = calls.find((c) => c.url.endsWith(':enable'));
+    assert.equal(en.method, 'POST');
+    assert.equal(en.headers['x-goog-user-project'], 'zeta-1', "enabling is counted against the user's project");
+  } finally {
+    globalThis.fetch = realFetch;
+    fs.rmSync(path.join(CONFIG_DIR, 'google-auth.json'));
+  }
+}
+
 // --- GUI server ---
 const { startGui } = await import('../dist/gui/server.js');
 const gui = await startGui({ cwd, config: done, version: 'test', open: false });

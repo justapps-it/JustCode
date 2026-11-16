@@ -264,6 +264,7 @@ $('bCustom').addEventListener('input', (e) => {
 });
 $('bAuto').addEventListener('change', (e) => (BD.auto = e.target.checked));
 $('budgetChip').addEventListener('click', () => openBudget());
+$('projectsClose').addEventListener('click', () => ($('projectsDlg').hidden = true));
 $('budgetClose').addEventListener('click', () => ($('budgetDlg').hidden = true));
 $('budgetDlg').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') $('budgetDlg').hidden = true;
@@ -488,7 +489,7 @@ function renderStarters(list) {
 
 /* ---------- guided setup ---------- */
 const W = { step: 'provider', trail: [], preset: null, apiKey: '', baseUrl: '', project: '', orchestrator: '', sub: '', turbo: false };
-const STEPS = { provider: 1, key: 2, baseurl: 2, project: 2, login: 2, test: 3, orch: 4, sub: 4, mode: 5 };
+const STEPS = { provider: 1, key: 2, baseurl: 2, project: 2, login: 2, gcp: 2, test: 3, orch: 4, sub: 4, mode: 5 };
 function openSetup() {
   Object.assign(W, { step: 'provider', trail: [], preset: null, apiKey: '', baseUrl: '', project: S.config.project || '', orchestrator: '', sub: '', turbo: !!S.config.turbo });
   $('setup').hidden = false;
@@ -556,6 +557,9 @@ function drawSetup() {
     case 'login':
       h = `<p class="q2"><span class="spin" style="display:inline-block"></span>&nbsp; Sign in with Google in the browser…</p><p class="sub" id="loginUrl"></p><div class="row">${backBtn()}</div>`;
       break;
+    case 'gcp':
+      h = `<p class="q2">Which Google Cloud project should pay?</p><div id="gcpBox"></div>`;
+      break;
     case 'test':
       h = `<p class="q2"><span class="spin" style="display:inline-block"></span>&nbsp; Testing ${esc(p.provider)}:${esc(W.orchestrator || p.orchestrator)}…</p>`;
       break;
@@ -594,13 +598,18 @@ function drawSetup() {
   B.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act)));
   if (W.step === 'test') runTest();
   if (W.step === 'login') runLogin();
+  if (W.step === 'gcp')
+    return void renderProjects($('gcpBox'), (id) => {
+      W.project = id;
+      go('test');
+    });
   B.querySelector('.opt')?.focus();
 }
 function pickPreset(id) {
   W.preset = S.presets.find((x) => x.id === id);
   W.apiKey = '';
   W.orchestrator = W.sub = '';
-  if (W.preset.login) go('project');
+  if (W.preset.login) go('login');
   else if (W.preset.baseUrl) go('baseurl');
   else go('key');
 }
@@ -618,7 +627,7 @@ function act(a) {
   }
   if (a === 'project' && v) {
     W.project = v;
-    go('login');
+    go('test');
   }
 }
 function pickModel(m) {
@@ -648,10 +657,74 @@ async function runTest() {
   );
   B.querySelector('.btn.primary, [data-act2="retry"]')?.focus();
 }
+/* ---------- Google Cloud project picker (setup step + standalone dialog) ---------- */
+// Lists the projects of the signed-in account; the chosen one is billed (its credits / free trial).
+async function renderProjects(el, done) {
+  el.innerHTML = '<p class="q2"><span class="spin" style="display:inline-block"></span>&nbsp; Loading your Google Cloud projects…</p>';
+  const r = await api('gcp/projects');
+  const manual = (msg) => {
+    el.innerHTML =
+      (msg ? `<div class="errbox">${esc(msg)}</div>` : '') +
+      `<div class="field"><span class="muted small">Project ID</span><input id="gpId" placeholder="my-project-123" spellcheck="false"></div>` +
+      `<div class="row"><a class="o small" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Create a project (new accounts get free trial credits)</a>` +
+      `<button class="btn primary" id="gpUse">Use this project</button></div>`;
+    $('gpId').focus();
+    const use = () => $('gpId').value.trim() && pick($('gpId').value.trim());
+    $('gpUse').addEventListener('click', use);
+    $('gpId').addEventListener('keydown', (e) => e.key === 'Enter' && use());
+  };
+  const pick = async (id) => {
+    el.innerHTML = `<p class="q2"><span class="spin" style="display:inline-block"></span>&nbsp; Checking the Gemini API on ${esc(id)}…</p>`;
+    const res = await api('gcp/project', { projectId: id });
+    if (res.error && !res.config) return manual(res.error);
+    if (!res.ok) {
+      el.innerHTML =
+        `<p class="q2">Project <b>${esc(id)}</b> saved.</p><div class="errbox">${esc(res.error)}</div>` +
+        `<div class="row"><span></span><button class="btn primary" id="gpCont">Continue</button></div>`;
+      $('gpCont').addEventListener('click', () => done(id, res));
+      return;
+    }
+    done(id, res);
+  };
+  if (r.error) return manual(r.error);
+  if (!r.projects.length) return manual('This account has no Google Cloud project yet.');
+  const draw = (q = '') => {
+    const list = r.projects.filter((p) => !q || `${p.projectId} ${p.name}`.toLowerCase().includes(q.toLowerCase()));
+    $('gpList').innerHTML =
+      list
+        .map(
+          (p) =>
+            `<button class="opt" data-p="${esc(p.projectId)}"${p.active ? '' : ' disabled'}><span class="t">${esc(p.projectId)}</span>` +
+            `${p.projectId === r.current ? '<span class="badge">current</span>' : ''}` +
+            `<span class="d">${esc(p.name && p.name !== p.projectId ? p.name : '')}${p.active ? '' : ' (not active)'}</span></button>`,
+        )
+        .join('') || '<div class="mempty muted">no project matches</div>';
+    $('gpList').querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => pick(b.dataset.p)));
+  };
+  el.innerHTML =
+    `<p class="sub">Usage is billed to the project you pick: its credits (e.g. the free trial) are used first.</p>` +
+    `<div class="field"><input id="gpFilter" placeholder="filter ${r.projects.length} projects…" spellcheck="false"></div>` +
+    `<div class="opts gp" id="gpList"></div>` +
+    `<div class="row"><button class="btn" id="gpManual">Type an ID instead</button><span></span></div>`;
+  draw();
+  $('gpFilter').addEventListener('input', (e) => draw(e.target.value));
+  $('gpFilter').focus();
+  $('gpManual').addEventListener('click', () => manual());
+}
+function openProjects() {
+  $('projectsDlg').hidden = false;
+  renderProjects($('projectsBody'), (_id, res) => {
+    if (res.config) setConfig(res.config);
+    $('projectsDlg').hidden = true;
+    input.focus();
+  });
+}
+
 async function runLogin() {
   const r = await api('login', draft());
   if (W.step !== 'login') return;
-  if (r.ok) go('test');
+  // signed in: pick the Cloud project from the account's list (no project id to type)
+  if (r.ok) go(W.project ? 'test' : 'gcp');
   else $('setupBody').innerHTML = `<p class="q2 err">✘ ${esc(r.error)}</p><div class="row">${backBtn()}</div>`, $('setupBody').querySelector('[data-act]').addEventListener('click', back);
 }
 async function finish(turbo) {
@@ -813,6 +886,7 @@ function connect() {
   });
   es.addEventListener('setup', () => openSetup());
   es.addEventListener('budget-ui', () => openBudget());
+  es.addEventListener('projects-ui', () => openProjects());
   es.addEventListener('spend', (e) => {
     const d = JSON.parse(e.data);
     showSpend(d.spent, d.limit);

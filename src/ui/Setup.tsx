@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { googleLogin } from '../auth/google.js';
+import { googleLogin, isGoogleLoggedIn } from '../auth/google.js';
 import { googleOAuth, type Config } from '../config.js';
 import { openBrowser } from '../core/open.js';
 import { PRESETS, applySetup, defaultBaseUrl, testConnection, type Preset } from '../core/setup.js';
 import { C, SPINNER } from './theme.js';
 import { useTick } from './hooks.js';
+import { ProjectPicker } from './ProjectPicker.js';
 
 interface Option {
   value: string;
@@ -43,9 +44,9 @@ function Select({ options, onPick, initial = 0 }: { options: Option[]; onPick: (
   );
 }
 
-type Step = 'provider' | 'keypage' | 'key' | 'baseurl' | 'project' | 'login' | 'test' | 'orch' | 'orch-custom' | 'sub' | 'sub-custom' | 'mode' | 'done';
+type Step = 'provider' | 'keypage' | 'key' | 'baseurl' | 'project' | 'login' | 'gcp' | 'test' | 'orch' | 'orch-custom' | 'sub' | 'sub-custom' | 'mode' | 'done';
 
-const STEP_NO: Partial<Record<Step, number>> = { provider: 1, keypage: 2, key: 2, baseurl: 2, project: 2, login: 2, test: 3, orch: 4, 'orch-custom': 4, sub: 4, 'sub-custom': 4, mode: 5, done: 6 };
+const STEP_NO: Partial<Record<Step, number>> = { provider: 1, keypage: 2, key: 2, baseurl: 2, project: 2, login: 2, gcp: 2, test: 3, orch: 4, 'orch-custom': 4, sub: 4, 'sub-custom': 4, mode: 5, done: 6 };
 
 /**
  * Guided setup: provider → credentials → connection test → models → permissions.
@@ -80,7 +81,7 @@ export function Setup({ config, onDone, onCancel }: { config: Config; onDone: (c
   };
 
   useInput((_ch, key) => {
-    if (key.escape && step !== 'login' && !testState.running) back();
+    if (key.escape && step !== 'login' && step !== 'gcp' && !testState.running) back();
   });
 
   const draft = (o = orch || preset.orchestrator, s = sub || preset.sub, turbo = config.turbo) =>
@@ -109,7 +110,8 @@ export function Setup({ config, onDone, onCancel }: { config: Config; onDone: (c
     const ctrl = new AbortController();
     setLoginMsg('');
     googleLogin(googleOAuth(draft()), (url) => setLoginMsg(url), ctrl.signal)
-      .then(() => go('test'))
+      // signed in: pick the Cloud project from the account's list (no project id to type)
+      .then(() => go(project ? 'test' : 'gcp'))
       .catch((e) => {
         setLoginMsg('✘ ' + (e as Error).message);
         setTimeout(() => back(), 2500);
@@ -146,7 +148,7 @@ export function Setup({ config, onDone, onCancel }: { config: Config; onDone: (c
                 setOrch('');
                 setSub('');
                 setApiKey(p.key !== 'none' ? (config.providers[p.provider]?.apiKey ?? '') : '');
-                if (p.login) go('project', project);
+                if (p.login) go('login');
                 else if (p.baseUrl) go('baseurl', config.providers[p.provider]?.baseUrl ?? defaultBaseUrl(p.provider)); else go(p.keyUrl ? 'keypage' : 'key');
               }}
             />
@@ -233,11 +235,23 @@ export function Setup({ config, onDone, onCancel }: { config: Config; onDone: (c
                 const p = v.trim();
                 if (!p) return;
                 setProject(p);
-                go('login');
+                go(isGoogleLoggedIn() ? 'test' : 'login');
               }}
             />
           </Box>
         </>
+      );
+      break;
+    case 'gcp':
+      body = (
+        <ProjectPicker
+          config={draft()}
+          onCancel={() => go('project', project)}
+          onDone={(c) => {
+            setProject(c.google.quotaProject ?? '');
+            go('test');
+          }}
+        />
       );
       break;
     case 'login':

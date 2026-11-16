@@ -85,7 +85,9 @@ Ad ogni push GitHub Actions esegue i test su Linux, macOS e Windows (Node 20 e 2
 
 **Il modo più semplice (gratis):** crea una chiave su [Google AI Studio](https://aistudio.google.com/apikey) — senza attivare la fatturazione hai il livello gratuito — e in just-Code scrivi `/key gemini <KEY>` (oppure `export GEMINI_API_KEY=...`). Se c'è una chiave, ha la precedenza sul login.
 
-**Con il login Google:** `/login <id-progetto>` apre il browser, accedi con il tuo account e il token viene salvato in `~/.just-code/google-auth.json` (si rinnova da solo). L'uso viene addebitato al **tuo** progetto Google Cloud (con la *Generative Language API* abilitata), mai a quello di just-Code. Puoi cambiarlo con `/project <id-progetto>` o `GOOGLE_CLOUD_QUOTA_PROJECT`.
+**Con il login Google (usa i tuoi crediti Google Cloud):** `/login` apre il browser e accedi con il tuo account (il token resta in `~/.just-code/google-auth.json` e si rinnova da solo). Poi just-Code **elenca i tuoi progetti Google Cloud**: scegline uno (si può filtrare scrivendo) e just-Code **attiva da solo la Gemini API** su quel progetto. Da lì ogni richiesta è addebitata a quel progetto tramite `X-Goog-User-Project`, quindi usa i **tuoi** crediti — per esempio la prova gratuita di Google Cloud — e mai quelli di just-Code. `/project` riapre l'elenco; `/project <id>` o `GOOGLE_CLOUD_QUOTA_PROJECT` lo impostano a mano.
+
+> Per chi pubblica just-Code con il proprio client OAuth: l'elenco dei progetti passa dalla *Cloud Resource Manager API*, che va attivata una volta (è gratuita) nel progetto del client OAuth.
 
 Per usare un tuo client OAuth (tipo **Desktop app**): `/google-client ~/Downloads/client_secret_xxx.json` oppure `/google-client <CLIENT_ID> <CLIENT_SECRET>`.
 

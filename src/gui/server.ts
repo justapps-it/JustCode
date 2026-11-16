@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Orchestrator, type JustEvent } from '../agents/orchestrator.js';
 import { googleAccount, googleLogin } from '../auth/google.js';
+import { enableGenLang, isGenLangEnabled, listProjects } from '../auth/gcp.js';
 import { PROVIDER_IDS, fmtRef, googleOAuth, parseModelRef, providerSettings, saveConfig, type Config, type ProviderId } from '../config.js';
 import { COMMANDS, runCommand, type Tone } from '../core/commands.js';
 import { complete, describeMentions, starterPrompts } from '../core/complete.js';
@@ -234,6 +235,7 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
       },
       openSetup: () => send('setup', {}),
       openBudget: () => send('budget-ui', {}),
+      openProjects: () => send('projects-ui', {}),
     });
 
   const sendPrompt = async (raw: string) => {
@@ -444,6 +446,29 @@ export async function startGui(o: GuiOptions): Promise<{ url: string; close: () 
           }
           const draft = draftFrom(b);
           return json(res, 200, await testConnection(draft, draft.orchestrator));
+        }
+        case 'GET /api/gcp/projects': {
+          try {
+            return json(res, 200, { projects: await listProjects(googleOAuth(config)), current: googleOAuth(config).quotaProject ?? null });
+          } catch (e) {
+            return json(res, 200, { error: (e as Error).message, projects: [] });
+          }
+        }
+        case 'POST /api/gcp/project': {
+          const b = await readBody(req);
+          const projectId = String(b.projectId ?? '').trim();
+          if (!/^[a-z][a-z0-9.:-]{4,62}$/.test(projectId)) return json(res, 400, { error: 'invalid project id' });
+          setConfig({ ...config, google: { ...config.google, quotaProject: projectId } });
+          clearModelCache('gemini');
+          const g = googleOAuth(config);
+          try {
+            if (!(await isGenLangEnabled(g, projectId))) await enableGenLang(g, projectId);
+            say(`✔ Gemini is ready — usage is billed to ${projectId} (its credits / free trial are used first).`, 'ok');
+            return json(res, 200, { ok: true, config: summary() });
+          } catch (e) {
+            say(`Project ${projectId} saved, but: ${(e as Error).message}`, 'warn');
+            return json(res, 200, { ok: false, error: (e as Error).message, config: summary() });
+          }
         }
         case 'POST /api/login': {
           const draft = draftFrom(await readBody(req));

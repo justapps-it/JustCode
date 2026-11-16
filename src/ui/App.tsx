@@ -12,6 +12,7 @@ import { listWorkspaceFiles } from '../tools/index.js';
 import { PromptInput } from './PromptInput.js';
 import { Setup } from './Setup.js';
 import { BudgetSlider } from './BudgetSlider.js';
+import { ProjectPicker } from './ProjectPicker.js';
 import { fmtBudget, fmtUsd } from '../core/budget.js';
 import type { PermissionRequest } from '../tools/index.js';
 import { AgentPanel, type AgentView } from './AgentPanel.js';
@@ -62,6 +63,7 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
   const [splash, setSplash] = useState(true);
   const [setup, setSetup] = useState(false);
   const [budgetUi, setBudgetUi] = useState(false);
+  const [projectsUi, setProjectsUi] = useState(false);
   const [spend, setSpend] = useState<{ spent: number; limit: number | null }>({ spent: 0, limit: null });
   const history = useMemo(() => new PromptHistory(), []);
   const [files, setFiles] = useState<string[]>([]);
@@ -242,6 +244,7 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
       onAccount: setAccount,
       openSetup: () => setSetup(true),
       openBudget: () => setBudgetUi(true),
+      openProjects: () => setProjectsUi(true),
       exit,
     });
 
@@ -327,7 +330,22 @@ export function App({ initialConfig, cwd, initialPrompt, forceSetup }: { initial
         />
       )}
 
-      {!busy && !setup && !budgetUi && queue.length === 0 && <PromptInput ctx={completeCtx} starters={starters} turbo={config.turbo} onSubmit={submit} />}
+      {projectsUi && (
+        <ProjectPicker
+          config={config}
+          onCancel={() => {
+            setProjectsUi(false);
+            push({ kind: 'info', text: 'No project chosen — /project opens the list again.', color: C.gray });
+          }}
+          onDone={(c, message, ok) => {
+            setProjectsUi(false);
+            setConfig(c);
+            push({ kind: 'info', text: message, color: ok ? C.green : C.yellow });
+          }}
+        />
+      )}
+
+      {!busy && !setup && !budgetUi && !projectsUi && queue.length === 0 && <PromptInput ctx={completeCtx} starters={starters} turbo={config.turbo} onSubmit={submit} />}
       <StatusBar config={config} tokens={tokens} account={account} spend={spend} />
     </Box>
   );
